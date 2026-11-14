@@ -44,4 +44,4 @@ flutter test
 
 The foundation includes the design tokens, app shell, navigation, domain rules for match setup, turn order, scoring, goals, and phase changes, plus local recovery of one saved match.
 
-Physical Companion setup and turn flow are the next milestone. Fully Digital is Release 2. Its hidden-order puzzle is a proposed mechanic and is not playable.
+Setup, turns, recorded round winners, pause, and the championship are playable on Android, iOS, and the web. Each player chooses an icon, shown in that player's color from the shared piece palette. The match is fully digital. The hidden-order bottle board is a proposed mechanic and is not playable.

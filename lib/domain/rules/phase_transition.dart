@@ -1,10 +1,9 @@
-import '../models/configuration.dart';
 import '../models/match_phase.dart';
 
 /// Session events the match shell can accept.
 ///
-/// Digital guess, feedback, and hint events are intentionally absent. Those
-/// belong to the proposed Release 2 puzzle and are not part of this shell.
+/// Guess, feedback, and hint events are absent. Those belong to the proposed
+/// digital bottle board and are not part of this shell.
 enum MatchEvent {
   startMatch,
   beginRound,
@@ -62,7 +61,6 @@ TransitionResult transition({
   required MatchPhase phase,
   required MatchPhase? resumePhase,
   required MatchEvent event,
-  required GameMode mode,
 }) {
   if (phase == MatchPhase.paused &&
       event != MatchEvent.resume &&
@@ -96,22 +94,12 @@ TransitionResult transition({
         const PhaseChange(phase: MatchPhase.playerHandoff),
       );
     case MatchEvent.requestPhysicalResult:
-      if (mode != GameMode.physicalCompanion) {
-        return const TransitionRejected(
-          'Physical results belong to Physical Companion.',
-        );
-      }
       return _from(
         phase,
         MatchPhase.activeTurn,
         const PhaseChange(phase: MatchPhase.physicalResultConfirmation),
       );
     case MatchEvent.confirmPhysicalResult:
-      if (mode != GameMode.physicalCompanion) {
-        return const TransitionRejected(
-          'Physical results belong to Physical Companion.',
-        );
-      }
       return _from(
         phase,
         MatchPhase.physicalResultConfirmation,

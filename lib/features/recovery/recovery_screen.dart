@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../application/controllers/match_session_controller.dart';
 import '../../application/controllers/saved_match_controller.dart';
+import '../../design_system/components/buttons/game_button.dart';
 import '../../design_system/components/game_page.dart';
+import '../../design_system/tokens/colors.dart';
 import '../../design_system/tokens/spacing.dart';
 import '../../domain/models/configuration.dart';
 import '../../domain/models/match_phase.dart';
@@ -32,10 +36,19 @@ class RecoveryScreen extends ConsumerWidget {
   }
 }
 
-class _RecoveryDetails extends StatelessWidget {
+class _RecoveryDetails extends ConsumerStatefulWidget {
   const _RecoveryDetails({required this.snapshot});
 
   final MatchSnapshot snapshot;
+
+  @override
+  ConsumerState<_RecoveryDetails> createState() => _RecoveryDetailsState();
+}
+
+class _RecoveryDetailsState extends ConsumerState<_RecoveryDetails> {
+  String? _error;
+
+  MatchSnapshot get snapshot => widget.snapshot;
 
   @override
   Widget build(BuildContext context) {
@@ -54,11 +67,23 @@ class _RecoveryDetails extends StatelessWidget {
         Text(_heading(snapshot.phase), style: text.headlineSmall),
         const SizedBox(height: AppSpacing.sm),
         Text(
-          'This build restores the saved session and keeps an in-progress '
-          'match paused. Turn controls arrive with the Physical Companion '
-          'flow. The saved order is not reshuffled.',
+          'Resume continues from the saved phase. '
+          'The saved order is not reshuffled.',
           style: text.bodyLarge,
         ),
+        const SizedBox(height: AppSpacing.lg),
+        GameButton(
+          key: const Key('resume-saved-match'),
+          label: snapshot.phase == MatchPhase.paused
+              ? 'Resume match'
+              : 'View match',
+          backgroundColor: AppColors.yellow,
+          onPressed: _open,
+        ),
+        if (_error != null) ...[
+          const SizedBox(height: AppSpacing.sm),
+          Text(_error!, style: text.bodyLarge),
+        ],
         const SizedBox(height: AppSpacing.lg),
         _Fact(label: 'Mode', value: _modeLabel(snapshot.mode)),
         _Fact(label: 'Phase', value: _phaseLabel(snapshot)),
@@ -77,6 +102,22 @@ class _RecoveryDetails extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  Future<void> _open() async {
+    if (snapshot.phase == MatchPhase.paused) {
+      final error = await ref.read(matchSessionProvider.notifier).resume();
+      if (!mounted) {
+        return;
+      }
+      if (error != null) {
+        setState(() => _error = error);
+        return;
+      }
+    }
+    if (mounted) {
+      await context.push('/match/play');
+    }
   }
 
   String _timerLabel(MatchSnapshot snapshot) {
@@ -123,8 +164,8 @@ String _phaseLabel(MatchSnapshot snapshot) {
 
 String _modeLabel(GameMode mode) {
   return switch (mode) {
-    GameMode.physicalCompanion => 'Physical Companion',
-    GameMode.fullyDigital => 'Fully Digital',
+    GameMode.physicalCompanion => 'Physical save',
+    GameMode.fullyDigital => 'Digital',
   };
 }
 

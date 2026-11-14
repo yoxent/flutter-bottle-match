@@ -11,7 +11,7 @@ import 'turn_clock.dart';
 /// Versioned, serializable match session.
 ///
 /// Scores are derived from [wins] so a save cannot disagree with the ledger.
-/// Release 2 digital board state is not stored here. Adding it will be a new
+/// Digital bottle-board state is not stored here. Adding it will be a new
 /// schema version rather than a silent change to version 1.
 class MatchSnapshot {
   const MatchSnapshot({
@@ -98,7 +98,6 @@ class MatchSnapshot {
       phase: phase,
       resumePhase: resumePhase,
       event: event,
-      mode: mode,
     );
     if (result is! TransitionAccepted) {
       return null;

@@ -8,21 +8,19 @@ import 'support/match_fixtures.dart';
 import 'support/memory_repositories.dart';
 
 void main() {
-  testWidgets('home offers both modes and marks digital as unavailable', (
-    tester,
-  ) async {
+  testWidgets('home starts a game without a mode choice', (tester) async {
     await _pumpApp(tester);
 
     expect(find.text('Colorful Bottle Match'), findsOneWidget);
-    expect(find.text('Physical Companion'), findsOneWidget);
-    expect(find.text('Fully Digital'), findsOneWidget);
+    expect(find.text('New game'), findsOneWidget);
+    expect(find.text('Physical Companion'), findsNothing);
+    expect(find.text('Fully Digital'), findsNothing);
     expect(find.text('Star'), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('fully-digital')));
+    await tester.tap(find.byKey(const Key('new-game')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Not implemented'), findsOneWidget);
-    expect(find.textContaining('proposed'), findsOneWidget);
+    expect(find.text('Players'), findsOneWidget);
   });
 
   testWidgets('settings changes reduced motion', (tester) async {

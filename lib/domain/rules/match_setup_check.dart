@@ -3,7 +3,7 @@ import '../models/player.dart';
 import 'match_constraints.dart';
 import 'player_names.dart';
 
-/// Why Start Match is or is not available. Issues are for the setup UI.
+/// Why Play is or is not available. Issues are for the setup UI.
 class MatchSetupCheck {
   const MatchSetupCheck(this.issues);
 
@@ -12,7 +12,6 @@ class MatchSetupCheck {
   bool get isValid => issues.isEmpty;
 
   factory MatchSetupCheck.evaluate({
-    required GameMode mode,
     required List<Player> roster,
     required MatchSettings settings,
   }) {
@@ -45,13 +44,6 @@ class MatchSetupCheck {
         (settings.selectedPlayerId == null ||
             !ids.contains(settings.selectedPlayerId))) {
       issues.add('Selected-player mode requires a player from the roster.');
-    }
-
-    if (mode == GameMode.physicalCompanion &&
-        !settings.physicalEquipmentConfirmed) {
-      issues.add(
-        'Confirm the group has enough distinguishable physical pieces.',
-      );
     }
 
     return MatchSetupCheck(issues);

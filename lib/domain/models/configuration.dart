@@ -1,10 +1,10 @@
 import '../rules/match_constraints.dart';
 import '../serialization/json_object.dart';
 
-/// How the group is playing this match.
+/// How a saved match was started.
 ///
-/// Fully Digital is a Release 2 mode. Its puzzle rules are proposed and are
-/// not implemented in this foundation.
+/// New matches are [fullyDigital]. [physicalCompanion] remains so a version 1
+/// snapshot can still be read. The app no longer offers that mode.
 enum GameMode { physicalCompanion, fullyDigital }
 
 /// The two confirmed ways a match can end.
@@ -48,7 +48,8 @@ class MatchSettings {
   final int bottleCount;
   final TurnTimerDuration timer;
 
-  /// Physical Companion cannot start until the group confirms it has pieces.
+  /// Kept on the version 1 snapshot. Play starts the match, so this value
+  /// does not decide whether setup is valid.
   final bool physicalEquipmentConfirmed;
 
   Map<String, Object?> toJson() => {

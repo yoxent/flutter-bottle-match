@@ -4,7 +4,6 @@ import 'package:forui/forui.dart';
 import 'package:go_router/go_router.dart';
 
 import '../tokens/colors.dart';
-import '../tokens/gradients.dart';
 import '../tokens/spacing.dart';
 import '../layout/game_viewport.dart';
 
@@ -13,6 +12,7 @@ class GamePage extends StatelessWidget {
     required this.title,
     required this.body,
     this.showBack = false,
+    this.onBack,
     this.actions = const [],
     super.key,
   });
@@ -20,6 +20,7 @@ class GamePage extends StatelessWidget {
   final String title;
   final Widget body;
   final bool showBack;
+  final VoidCallback? onBack;
   final List<Widget> actions;
 
   @override
@@ -29,7 +30,7 @@ class GamePage extends StatelessWidget {
       child: Scaffold(
         backgroundColor: AppColors.background,
         body: DecoratedBox(
-          decoration: const BoxDecoration(gradient: AppGradients.background),
+          decoration: const BoxDecoration(color: AppColors.background),
           child: GameViewport(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -39,7 +40,7 @@ class GamePage extends StatelessWidget {
                     if (showBack)
                       IconButton(
                         tooltip: 'Back',
-                        onPressed: () => context.pop(),
+                        onPressed: onBack ?? () => context.pop(),
                         icon: const Icon(FLucideIcons.arrowLeft),
                         color: AppColors.cream,
                         constraints: const BoxConstraints(
