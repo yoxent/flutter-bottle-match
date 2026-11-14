@@ -11,6 +11,7 @@ concurrency:
 
 jobs:
   check:
+    name: Quality gates
     runs-on: ubuntu-latest
 
     steps:
