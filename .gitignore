@@ -1,0 +1,59 @@
+# Flutter/Dart
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# IntelliJ / Android Studio
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# VS Code launch configs are optional. Uncomment to keep them local.
+#.vscode/
+
+# Package and build output
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+/coverage/
+
+# Symbolication and obfuscation
+app.*.symbols
+app.*.map.json
+
+# Android build outputs and machine-local files
+/android/app/debug
+/android/app/profile
+/android/app/release
+/android/.gradle/
+/android/local.properties
+/android/key.properties
+**/*.keystore
+**/*.jks
+
+# Secrets
+.env
+.env.*
+*.env
+
+# Local agent files
+.cursor/
+AGENTS.md
+
+# macOS
+**/Flutter/ephemeral/

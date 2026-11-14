@@ -1,0 +1,60 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:forui/forui.dart';
+
+import '../tokens/colors.dart';
+import '../tokens/typography.dart';
+
+/// Material theme for game screens, plus a Forui theme for standard controls.
+abstract final class AppTheme {
+  static final ThemeData materialTheme = _material();
+  static final FThemeData foruiTheme = _forui();
+
+  static ThemeData _material() {
+    const scheme = ColorScheme.dark(
+      primary: AppColors.hotPink,
+      onPrimary: AppColors.ink,
+      secondary: AppColors.cyan,
+      onSecondary: AppColors.ink,
+      surface: AppColors.card,
+      onSurface: AppColors.cream,
+      error: AppColors.danger,
+      onError: AppColors.cream,
+    );
+    return ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.dark,
+      colorScheme: scheme,
+      scaffoldBackgroundColor: AppColors.background,
+      textTheme: AppTypography.textTheme(),
+      splashFactory: InkSparkle.splashFactory,
+    );
+  }
+
+  static FThemeData _forui() {
+    final colors = FColors(
+      brightness: Brightness.dark,
+      systemOverlayStyle: SystemUiOverlayStyle.light,
+      barrier: Color(0xB314061F),
+      background: AppColors.background,
+      foreground: AppColors.cream,
+      primary: AppColors.hotPink,
+      primaryForeground: AppColors.ink,
+      secondary: AppColors.electricBlue,
+      secondaryForeground: AppColors.cream,
+      muted: AppColors.card,
+      mutedForeground: AppColors.creamMuted,
+      destructive: AppColors.danger,
+      destructiveForeground: AppColors.cream,
+      error: AppColors.danger,
+      errorForeground: AppColors.cream,
+      card: AppColors.card,
+      border: Color(0x33FFF7E8),
+    );
+    return FThemeData(
+      colors: colors,
+      touch: true,
+      debugLabel: 'Colorful Bottle Match',
+    );
+  }
+}
