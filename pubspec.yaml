@@ -29,3 +29,6 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/images/filled-bottle.png
+    - assets/images/filled-bottle-fill.png

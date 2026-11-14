@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../application/controllers/match_session_controller.dart';
 import '../../application/controllers/saved_match_controller.dart';
 import '../../design_system/components/buttons/game_button.dart';
+import '../../design_system/components/fact_card.dart';
 import '../../design_system/components/game_page.dart';
 import '../../design_system/tokens/colors.dart';
 import '../../design_system/tokens/spacing.dart';
@@ -62,45 +63,48 @@ class _RecoveryDetailsState extends ConsumerState<_RecoveryDetails> {
         '${names[index]} ${snapshot.scores[snapshot.roster[index].id] ?? 0}',
     ];
 
-    return ListView(
-      children: [
-        Text(_heading(snapshot.phase), style: text.headlineSmall),
-        const SizedBox(height: AppSpacing.sm),
-        Text(
-          'Resume continues from the saved phase. '
-          'The saved order is not reshuffled.',
-          style: text.bodyLarge,
-        ),
-        const SizedBox(height: AppSpacing.lg),
-        GameButton(
-          key: const Key('resume-saved-match'),
-          label: snapshot.phase == MatchPhase.paused
-              ? 'Resume match'
-              : 'View match',
-          backgroundColor: AppColors.yellow,
-          onPressed: _open,
-        ),
-        if (_error != null) ...[
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(_heading(snapshot.phase), style: text.headlineSmall),
           const SizedBox(height: AppSpacing.sm),
-          Text(_error!, style: text.bodyLarge),
+          Text(
+            'Resume continues from the saved phase. '
+            'The saved order is not reshuffled.',
+            style: text.bodyLarge,
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          GameButton(
+            key: const Key('resume-saved-match'),
+            label: snapshot.phase == MatchPhase.paused
+                ? 'Resume match'
+                : 'View match',
+            backgroundColor: AppColors.yellow,
+            onPressed: _open,
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Text(_error!, style: text.bodyLarge),
+          ],
+          const SizedBox(height: AppSpacing.lg),
+          FactCard(label: 'Mode', value: _modeLabel(snapshot.mode)),
+          FactCard(label: 'Phase', value: _phaseLabel(snapshot)),
+          FactCard(label: 'Round', value: '${snapshot.roundNumber}'),
+          FactCard(label: 'Turn cycle', value: '${snapshot.turnCycle}'),
+          FactCard(
+            label: 'Order',
+            value: order.isEmpty ? 'Not shuffled yet' : order.join(', '),
+          ),
+          FactCard(label: 'Scores', value: scores.join(' · ')),
+          FactCard(
+            label: 'Timer',
+            value: snapshot.timer.duration == TurnTimerDuration.off
+                ? 'Off'
+                : _timerLabel(snapshot),
+          ),
         ],
-        const SizedBox(height: AppSpacing.lg),
-        _Fact(label: 'Mode', value: _modeLabel(snapshot.mode)),
-        _Fact(label: 'Phase', value: _phaseLabel(snapshot)),
-        _Fact(label: 'Round', value: '${snapshot.roundNumber}'),
-        _Fact(label: 'Turn cycle', value: '${snapshot.turnCycle}'),
-        _Fact(
-          label: 'Order',
-          value: order.isEmpty ? 'Not shuffled yet' : order.join(', '),
-        ),
-        _Fact(label: 'Scores', value: scores.join(' · ')),
-        _Fact(
-          label: 'Timer',
-          value: snapshot.timer.duration == TurnTimerDuration.off
-              ? 'Off'
-              : _timerLabel(snapshot),
-        ),
-      ],
+      ),
     );
   }
 
@@ -125,24 +129,6 @@ class _RecoveryDetailsState extends ConsumerState<_RecoveryDetails> {
     final seconds = remaining.inSeconds;
     final running = snapshot.timer.isRunning ? 'running' : 'paused';
     return '$seconds seconds left, $running';
-  }
-}
-
-class _Fact extends StatelessWidget {
-  const _Fact({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: Text(
-        '$label: $value',
-        style: Theme.of(context).textTheme.bodyLarge,
-      ),
-    );
   }
 }
 

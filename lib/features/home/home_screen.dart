@@ -8,9 +8,9 @@ import '../../application/controllers/settings_controller.dart';
 import '../../core/constants/app_info.dart';
 import '../../design_system/components/buttons/game_button.dart';
 import '../../design_system/components/game_page.dart';
-import '../../design_system/components/indicators/identity_swatch.dart';
 import '../../design_system/tokens/colors.dart';
 import '../../design_system/tokens/spacing.dart';
+import '../../design_system/tokens/typography.dart';
 import '../../domain/models/match_phase.dart';
 import '../../domain/models/match_snapshot.dart';
 
@@ -27,7 +27,6 @@ class HomeScreen extends ConsumerWidget {
     );
 
     return GamePage(
-      title: AppInfo.name,
       actions: [
         IconButton(
           tooltip: 'Settings',
@@ -103,40 +102,11 @@ class _HomeContentState extends State<_HomeContent>
       opacity: _entrance,
       child: ListView(
         children: [
+          Text(AppInfo.name, style: AppTypography.display),
+          const SizedBox(height: AppSpacing.xs),
           Text(AppInfo.tagline, style: Theme.of(context).textTheme.bodyLarge),
           const SizedBox(height: AppSpacing.lg),
-          const Wrap(
-            spacing: AppSpacing.sm,
-            runSpacing: AppSpacing.sm,
-            alignment: WrapAlignment.center,
-            children: [
-              IdentitySwatch(
-                name: 'Star',
-                icon: FLucideIcons.star,
-                color: AppColors.yellow,
-              ),
-              IdentitySwatch(
-                name: 'Moon',
-                icon: FLucideIcons.moon,
-                color: AppColors.cyan,
-              ),
-              IdentitySwatch(
-                name: 'Heart',
-                icon: FLucideIcons.heart,
-                color: AppColors.hotPink,
-              ),
-              IdentitySwatch(
-                name: 'Bolt',
-                icon: FLucideIcons.zap,
-                color: AppColors.electricBlue,
-              ),
-              IdentitySwatch(
-                name: 'Drop',
-                icon: FLucideIcons.droplet,
-                color: AppColors.lime,
-              ),
-            ],
-          ),
+          const _BottleColors(),
           const SizedBox(height: AppSpacing.xl),
           if (showContinue) ...[
             GameButton(
@@ -162,6 +132,28 @@ class _HomeContentState extends State<_HomeContent>
             'Shared device. No account. Players take turns on one device.',
             style: Theme.of(context).textTheme.labelLarge,
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BottleColors extends StatelessWidget {
+  const _BottleColors();
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'Fifteen bottle colors',
+      child: Wrap(
+        spacing: AppSpacing.xs,
+        runSpacing: AppSpacing.xs,
+        children: [
+          for (final color in PieceColors.values)
+            DecoratedBox(
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+              child: const SizedBox(width: 18, height: 18),
+            ),
         ],
       ),
     );

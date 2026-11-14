@@ -2,16 +2,19 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:forui/forui.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../application/controllers/match_session_controller.dart';
 import '../../../application/controllers/saved_match_controller.dart';
 import '../../../application/controllers/settings_controller.dart';
+import '../../../design_system/components/action_footer.dart';
 import '../../../design_system/components/buttons/game_button.dart';
 import '../../../design_system/components/game_page.dart';
-import '../../../design_system/components/indicators/identity_swatch.dart';
 import '../../../design_system/tokens/colors.dart';
+import '../../../design_system/tokens/radii.dart';
 import '../../../design_system/tokens/spacing.dart';
+import '../../../design_system/tokens/typography.dart';
 import '../../../domain/models/configuration.dart';
 import '../../../domain/models/match_phase.dart';
 import '../../../domain/models/match_snapshot.dart';
@@ -19,6 +22,7 @@ import '../../../domain/models/player.dart';
 import '../../../domain/rules/bottle_round.dart';
 import '../../../domain/rules/goal_evaluation.dart';
 import '../../../domain/rules/phase_transition.dart';
+import '../../../domain/rules/player_names.dart';
 import '../board/bottle_faces.dart';
 import '../board/bottle_rack.dart';
 import 'match_copy.dart';
@@ -69,6 +73,8 @@ class _PhysicalSessionScreenState extends ConsumerState<PhysicalSessionScreen>
     ref.listen(matchSessionProvider, (_, next) => _syncTicker(next.value));
     _scheduleTicker(session.value);
 
+    final snapshot = session.asData?.value;
+    final swapping = _isSwapping(snapshot);
     return PopScope(
       canPop: _allowPop,
       onPopInvokedWithResult: (didPop, _) {
@@ -78,9 +84,10 @@ class _PhysicalSessionScreenState extends ConsumerState<PhysicalSessionScreen>
         unawaited(_leave());
       },
       child: GamePage(
-        title: 'Match',
+        title: swapping ? currentPlayerName(snapshot!) : 'Match',
         showBack: true,
         onBack: () => unawaited(_leave()),
+        actions: swapping ? _swapActions(snapshot!) : const [],
         body: session.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (error, _) => Text('$error'),
@@ -197,6 +204,40 @@ class _PhysicalSessionScreenState extends ConsumerState<PhysicalSessionScreen>
       }
     });
   }
+
+  List<Widget> _swapActions(MatchSnapshot snapshot) {
+    final timerOn = snapshot.settings.timer != TurnTimerDuration.off;
+    return [
+      if (timerOn)
+        Text(
+          formatRemaining(snapshot.timer.remainingAt(DateTime.now())),
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+      IconButton(
+        tooltip: 'Pause',
+        onPressed: () => unawaited(
+          _run(() async {
+            await ref
+                .read(matchSessionProvider.notifier)
+                .pauseForInterruption();
+            return null;
+          }),
+        ),
+        icon: const Icon(FLucideIcons.pause),
+        color: AppColors.cream,
+        constraints: const BoxConstraints(
+          minWidth: AppTouch.minimum,
+          minHeight: AppTouch.minimum,
+        ),
+      ),
+    ];
+  }
+}
+
+bool _isSwapping(MatchSnapshot? snapshot) {
+  return snapshot != null &&
+      snapshot.phase == MatchPhase.activeTurn &&
+      snapshot.judgesGuesses;
 }
 
 class _SessionBody extends ConsumerWidget {
@@ -231,271 +272,303 @@ class _SessionBody extends ConsumerWidget {
       scores: snapshot.scores,
     );
 
-    return SingleChildScrollView(
-      child: Column(
+    final phase = _phase(
+      context,
+      notifier,
+      reducedMotion: reducedMotion,
+      goal: goal,
+    );
+    if (_isSwapping(snapshot)) {
+      return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            'Round ${snapshot.roundNumber} · ${goalLabel(snapshot)}',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
+          _SwapStatus(snapshot: snapshot),
           const SizedBox(height: AppSpacing.xs),
-          Text(
-            '${snapshot.settings.bottleCount} bottles · '
-            '${standingsLabel(snapshot)}',
-            style: Theme.of(context).textTheme.bodyLarge,
-          ),
-          const SizedBox(height: AppSpacing.md),
-          ..._phase(
-            context,
-            notifier,
-            reducedMotion: reducedMotion,
-            goal: goal,
+          Expanded(
+            child: BottleRack(
+              arrangement: snapshot.board!.pending,
+              onSwap: (from, to) =>
+                  onRun(() => notifier.moveBottle(from: from, to: to)),
+            ),
           ),
           if (error != null) ...[
-            const SizedBox(height: AppSpacing.md),
+            const SizedBox(height: AppSpacing.xs),
             Text(error!, style: Theme.of(context).textTheme.bodyLarge),
           ],
+          ActionFooter(child: phase.actions.single),
         ],
-      ),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _MatchHeader(
+          snapshot: snapshot,
+          showScores: _showsScores(snapshot.phase),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        Expanded(
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: phase.body,
+            ),
+          ),
+        ),
+        if (error != null || phase.actions.isNotEmpty)
+          ActionFooter(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (error != null) ...[
+                  Text(error!, style: Theme.of(context).textTheme.bodyLarge),
+                  if (phase.actions.isNotEmpty)
+                    const SizedBox(height: AppSpacing.sm),
+                ],
+                for (var index = 0; index < phase.actions.length; index++) ...[
+                  if (index > 0) const SizedBox(height: AppSpacing.xs),
+                  phase.actions[index],
+                ],
+              ],
+            ),
+          ),
+      ],
     );
   }
 
-  List<Widget> _phase(
+  ({List<Widget> body, List<Widget> actions}) _phase(
     BuildContext context,
     MatchSessionController notifier, {
     required bool reducedMotion,
     required GoalEvaluation goal,
   }) {
+    final text = Theme.of(context).textTheme;
     return switch (snapshot.phase) {
-      MatchPhase.roundIntroduction => [
-        _TurnOrderPreview(snapshot: snapshot),
-        const SizedBox(height: AppSpacing.md),
-        _primary(
-          key: const Key('begin-round'),
-          label: 'Begin round',
-          color: AppColors.hotPink,
-          onPressed: () => onRun(notifier.beginRound),
-        ),
-        _pause(notifier),
-      ],
-      MatchPhase.playerHandoff => [
-        _playerHero(context, currentPlayerName(snapshot)),
-        Text(
-          'Next: ${nextPlayerName(snapshot)}',
-          style: Theme.of(context).textTheme.bodyLarge,
-        ),
-        if (snapshot.settings.timer != TurnTimerDuration.off) ...[
+      MatchPhase.roundIntroduction => (
+        body: [_TurnOrderPreview(snapshot: snapshot)],
+        actions: [
+          _primary(
+            key: const Key('begin-round'),
+            label: 'Begin round',
+            color: AppColors.hotPink,
+            onPressed: () => onRun(notifier.beginRound),
+          ),
+          _pause(notifier),
+        ],
+      ),
+      MatchPhase.playerHandoff => (
+        body: [
+          _playerHero(context, currentPlayerName(snapshot)),
+          Text('Next: ${nextPlayerName(snapshot)}', style: text.bodyLarge),
+          if (snapshot.settings.timer != TurnTimerDuration.off) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              'The timer starts when the player is ready.',
+              style: text.bodyLarge,
+            ),
+          ],
+          ..._latestCount(context),
+        ],
+        actions: [
+          _primary(
+            key: const Key('player-ready'),
+            label: "I'm ready",
+            color: AppColors.yellow,
+            onPressed: () => onRun(notifier.markReady),
+          ),
+          _pause(notifier),
+        ],
+      ),
+      MatchPhase.activeTurn => (
+        body: [
+          if (!snapshot.judgesGuesses) ...[
+            _playerHero(context, currentPlayerName(snapshot)),
+            Text('Next: ${nextPlayerName(snapshot)}', style: text.bodyLarge),
+            ..._timerCopy(context),
+          ],
+        ],
+        actions: [
+          if (snapshot.judgesGuesses)
+            _primary(
+              key: const Key('check-arrangement'),
+              label: 'Check arrangement',
+              color: AppColors.hotPink,
+              onPressed: () => onRun(notifier.submitArrangement),
+            )
+          else ...[
+            _primary(
+              key: const Key('record-winner'),
+              label: 'Record round winner',
+              color: AppColors.hotPink,
+              onPressed: () => onRun(notifier.requestWinner),
+            ),
+            _primary(
+              key: const Key('next-player'),
+              label: 'Next player',
+              color: AppColors.cyan,
+              onPressed: () => onRun(notifier.advancePlayer),
+            ),
+          ],
+          if (!snapshot.judgesGuesses) _pause(notifier),
+        ],
+      ),
+      MatchPhase.physicalResultConfirmation => (
+        body: [
+          Text('Who won this round?', style: text.headlineSmall),
+          const SizedBox(height: AppSpacing.sm),
+          for (final player in snapshot.roster)
+            _WinnerChoice(
+              label: visibleName(snapshot.roster, player.id),
+              selected: winnerId == player.id,
+              onPressed: () => onWinner(player.id),
+            ),
+          const SizedBox(height: AppSpacing.sm),
+          Text('The table records this winner.', style: text.bodyLarge),
+        ],
+        actions: [
+          _primary(
+            key: const Key('confirm-winner'),
+            label: 'Confirm winner',
+            color: AppColors.hotPink,
+            onPressed: winnerId == null
+                ? null
+                : () => onRun(() => notifier.confirmWinner(winnerId!)),
+          ),
+          _pause(notifier),
+        ],
+      ),
+      MatchPhase.roundResult => (
+        body: [
+          Text(_resultTitle(), style: text.headlineSmall),
+          const SizedBox(height: AppSpacing.sm),
+          Text(_resultBody(goal), style: text.bodyLarge),
+        ],
+        actions: [
+          if (snapshot.board?.practice == true)
+            _primary(
+              key: const Key('play-real-round'),
+              label: 'Play the real round',
+              color: AppColors.yellow,
+              onPressed: () => onRun(notifier.finishPractice),
+            )
+          else if (goal.status == GoalStatus.inProgress)
+            _primary(
+              key: const Key('next-round'),
+              label: 'Next round',
+              color: AppColors.yellow,
+              onPressed: () => onRun(notifier.startNextRound),
+            ),
+          if (goal.status == GoalStatus.ambiguous)
+            _primary(
+              key: const Key('end-unfinished'),
+              label: 'End unfinished match',
+              color: AppColors.cyan,
+              onPressed: () => onRun(notifier.endEarly),
+            ),
+          if (_canCorrect) _correct(notifier),
+          _pause(notifier),
+        ],
+      ),
+      MatchPhase.paused => (
+        body: [
+          Text('Paused', style: text.headlineSmall),
           const SizedBox(height: AppSpacing.sm),
           Text(
-            'The timer starts when the player is ready.',
-            style: Theme.of(context).textTheme.bodyLarge,
+            snapshot.judgesGuesses
+                ? 'Resume returns to the same bottles and the same turn.'
+                : 'Resume returns to ${_phaseName(snapshot.resumePhase)}. '
+                      'The round order stays as it is.',
+            style: text.bodyLarge,
           ),
-        ],
-        ..._latestCount(context),
-        const SizedBox(height: AppSpacing.md),
-        _primary(
-          key: const Key('player-ready'),
-          label: "I'm ready",
-          color: AppColors.yellow,
-          onPressed: () => onRun(notifier.markReady),
-        ),
-        _pause(notifier),
-      ],
-      MatchPhase.activeTurn => [
-        _playerHero(context, currentPlayerName(snapshot)),
-        Text(
-          'Next: ${nextPlayerName(snapshot)}',
-          style: Theme.of(context).textTheme.bodyLarge,
-        ),
-        ..._timerCopy(context),
-        const SizedBox(height: AppSpacing.md),
-        if (snapshot.judgesGuesses) ...[
-          BottleRack(
-            arrangement: snapshot.board!.pending,
-            hint: snapshot.board!.hint,
-            onSwap: (from, to) =>
-                onRun(() => notifier.moveBottle(from: from, to: to)),
-          ),
-          ..._guessHistory(context),
+          if (!snapshot.judgesGuesses) ...[
+            const SizedBox(height: AppSpacing.lg),
+            Text(
+              'The app tracks turns and scores. Someone at the table records '
+              'each round winner.',
+              style: text.bodyLarge,
+            ),
+          ],
+          if (snapshot.board?.hint != null) ...[
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              'Position ${snapshot.board!.hint!.position + 1} is '
+              '${bottleLetterFor(snapshot.board!.hint!.bottle)}.',
+              style: text.bodyLarge,
+            ),
+          ],
           const SizedBox(height: AppSpacing.md),
-          _primary(
-            key: const Key('check-arrangement'),
-            label: 'Check arrangement',
-            color: AppColors.hotPink,
-            onPressed: () => onRun(notifier.submitArrangement),
-          ),
-        ] else ...[
-          _primary(
-            key: const Key('record-winner'),
-            label: 'Record round winner',
-            color: AppColors.hotPink,
-            onPressed: () => onRun(notifier.requestWinner),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          _primary(
-            key: const Key('next-player'),
-            label: 'Next player',
-            color: AppColors.cyan,
-            onPressed: () => onRun(notifier.advancePlayer),
+          _PauseEditor(
+            roster: snapshot.roster,
+            onSave: (id, name) =>
+                onRun(() => notifier.renamePlayer(playerId: id, rawName: name)),
+            onAvatar: (id, index) => onRun(
+              () => notifier.changeAvatar(playerId: id, avatarIndex: index),
+            ),
           ),
         ],
-        _pause(notifier),
-      ],
-      MatchPhase.physicalResultConfirmation => [
-        Text(
-          'Who won this round?',
-          style: Theme.of(context).textTheme.headlineSmall,
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        for (final player in snapshot.roster)
-          _WinnerChoice(
-            label: visibleName(snapshot.roster, player.id),
-            selected: winnerId == player.id,
-            onPressed: () => onWinner(player.id),
-          ),
-        const SizedBox(height: AppSpacing.sm),
-        Text(
-          'The table records this winner.',
-          style: Theme.of(context).textTheme.bodyLarge,
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        _primary(
-          key: const Key('confirm-winner'),
-          label: 'Confirm winner',
-          color: AppColors.hotPink,
-          onPressed: winnerId == null
-              ? null
-              : () => onRun(() => notifier.confirmWinner(winnerId!)),
-        ),
-        _pause(notifier),
-      ],
-      MatchPhase.roundResult => [
-        Text(_resultTitle(), style: Theme.of(context).textTheme.headlineSmall),
-        const SizedBox(height: AppSpacing.sm),
-        Text(_resultBody(goal), style: Theme.of(context).textTheme.bodyLarge),
-        const SizedBox(height: AppSpacing.md),
-        if (snapshot.board?.practice == true)
+        actions: [
           _primary(
-            key: const Key('play-real-round'),
-            label: 'Play the real round',
+            key: const Key('resume-match'),
+            label: 'Resume',
             color: AppColors.yellow,
-            onPressed: () => onRun(notifier.finishPractice),
-          )
-        else if (goal.status == GoalStatus.inProgress)
-          _primary(
-            key: const Key('next-round'),
-            label: 'Next round',
-            color: AppColors.yellow,
-            onPressed: () => onRun(notifier.startNextRound),
+            onPressed: () => onRun(notifier.resume),
           ),
-        if (goal.status == GoalStatus.ambiguous) ...[
-          const SizedBox(height: AppSpacing.sm),
-          _primary(
-            key: const Key('end-unfinished'),
+          if (_canSkip)
+            _secondary(
+              label: 'Skip turn',
+              onPressed: () => onRun(notifier.skipTurn),
+            ),
+          if (_canHint)
+            _secondary(
+              key: const Key('show-hint'),
+              label: 'Show a hint',
+              onPressed: () => onRun(notifier.takeHint),
+            ),
+          if (_canAbandon)
+            _secondary(
+              label: 'Abandon round',
+              onPressed: () => onRun(notifier.abandonRound),
+            ),
+          _secondary(
             label: 'End unfinished match',
-            color: AppColors.cyan,
             onPressed: () => onRun(notifier.endEarly),
           ),
         ],
-        if (_canCorrect) _correct(notifier),
-        _pause(notifier),
-      ],
-      MatchPhase.paused => [
-        Text('Paused', style: Theme.of(context).textTheme.headlineSmall),
-        const SizedBox(height: AppSpacing.sm),
-        Text(
-          snapshot.judgesGuesses
-              ? 'Resume returns to the same bottles and the same turn.'
-              : 'Resume returns to ${_phaseName(snapshot.resumePhase)}. '
-                    'The round order stays as it is.',
-          style: Theme.of(context).textTheme.bodyLarge,
-        ),
-        const SizedBox(height: AppSpacing.md),
-        _primary(
-          key: const Key('resume-match'),
-          label: 'Resume',
-          color: AppColors.yellow,
-          onPressed: () => onRun(notifier.resume),
-        ),
-        if (!snapshot.judgesGuesses) ...[
-          const SizedBox(height: AppSpacing.lg),
+      ),
+      MatchPhase.championship => (
+        body: [_Championship(snapshot: snapshot, reducedMotion: reducedMotion)],
+        actions: [
+          _primary(
+            key: const Key('play-again'),
+            label: 'Play again',
+            color: AppColors.hotPink,
+            onPressed: onPlayAgain,
+          ),
+          _primary(
+            key: const Key('change-settings'),
+            label: 'Change settings',
+            color: AppColors.yellow,
+            onPressed: onChangeSettings,
+          ),
+          if (_canCorrect) _correct(notifier),
+        ],
+      ),
+      MatchPhase.unfinishedMatch => (
+        body: [
+          Text('Unfinished match', style: text.headlineSmall),
+          const SizedBox(height: AppSpacing.sm),
           Text(
-            'The app tracks turns and scores. Someone at the table records '
-            'each round winner.',
-            style: Theme.of(context).textTheme.bodyLarge,
+            'These are the current standings. This is not a championship.',
+            style: text.bodyLarge,
           ),
         ],
-        if (snapshot.board?.hint != null) ...[
-          const SizedBox(height: AppSpacing.md),
-          Text(
-            'Position ${snapshot.board!.hint!.position + 1} is the '
-            '${bottleFaceFor(snapshot.board!.hint!.bottle).label} bottle.',
-            style: Theme.of(context).textTheme.bodyLarge,
-          ),
-        ],
-        const SizedBox(height: AppSpacing.md),
-        _PauseEditor(
-          roster: snapshot.roster,
-          onSave: (id, name) =>
-              onRun(() => notifier.renamePlayer(playerId: id, rawName: name)),
-          onAvatar: (id, index) => onRun(
-            () => notifier.changeAvatar(playerId: id, avatarIndex: index),
-          ),
-        ),
-        if (_canSkip)
-          _secondary(
-            label: 'Skip turn',
-            onPressed: () => onRun(notifier.skipTurn),
-          ),
-        if (_canHint)
-          _secondary(
-            key: const Key('show-hint'),
-            label: 'Show a hint',
-            onPressed: () => onRun(notifier.takeHint),
-          ),
-        if (_canAbandon)
-          _secondary(
-            label: 'Abandon round',
-            onPressed: () => onRun(notifier.abandonRound),
-          ),
-        _secondary(
-          label: 'End unfinished match',
-          onPressed: () => onRun(notifier.endEarly),
-        ),
-      ],
-      MatchPhase.championship => [
-        _Championship(snapshot: snapshot, reducedMotion: reducedMotion),
-        const SizedBox(height: AppSpacing.md),
-        _primary(
-          key: const Key('play-again'),
-          label: 'Play again',
-          color: AppColors.hotPink,
-          onPressed: onPlayAgain,
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        _primary(
-          key: const Key('change-settings'),
-          label: 'Change settings',
-          color: AppColors.yellow,
-          onPressed: onChangeSettings,
-        ),
-        if (_canCorrect) _correct(notifier),
-      ],
-      MatchPhase.unfinishedMatch => [
-        Text(
-          'Unfinished match',
-          style: Theme.of(context).textTheme.headlineSmall,
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        Text(
-          'These are the current standings. This is not a championship.',
-          style: Theme.of(context).textTheme.bodyLarge,
-        ),
-      ],
-      MatchPhase.setup => [
-        const Text('This match has not opened a round yet.'),
-      ],
+        actions: const [],
+      ),
+      MatchPhase.setup => (
+        body: const [Text('This match has not opened a round yet.')],
+        actions: const [],
+      ),
     };
   }
 
@@ -533,32 +606,35 @@ class _SessionBody extends ConsumerWidget {
             orElse: () => snapshot.roster.first,
           );
     final face = playerFaceFor(player.avatarIndex);
-    return Column(
-      children: [
-        IdentitySwatch(
-          name: face.label,
-          icon: face.icon,
-          color: playerColorFor(
-            snapshot.roster.indexWhere((item) => item.id == player.id),
+    final color = playerColorFor(
+      snapshot.roster.indexWhere((item) => item.id == player.id),
+    );
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(face.icon, color: color, size: 32),
+          const SizedBox(width: AppSpacing.sm),
+          Flexible(
+            child: Text(
+              name,
+              style: Theme.of(context).textTheme.headlineSmall,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        Text(name, style: Theme.of(context).textTheme.headlineSmall),
-        const SizedBox(height: AppSpacing.sm),
-      ],
+        ],
+      ),
     );
   }
 
   Widget _pause(MatchSessionController notifier) {
-    return Padding(
-      padding: const EdgeInsets.only(top: AppSpacing.sm),
-      child: _secondary(
-        label: 'Pause',
-        onPressed: () => onRun(() async {
-          await notifier.pauseForInterruption();
-          return null;
-        }),
-      ),
+    return _secondary(
+      label: 'Pause',
+      onPressed: () => onRun(() async {
+        await notifier.pauseForInterruption();
+        return null;
+      }),
     );
   }
 
@@ -620,23 +696,6 @@ class _SessionBody extends ConsumerWidget {
     ];
   }
 
-  List<Widget> _guessHistory(BuildContext context) {
-    final guesses = snapshot.board?.guesses ?? const <BottleGuess>[];
-    if (guesses.isEmpty) {
-      return const [];
-    }
-    final total = snapshot.board!.target.length;
-    return [
-      const SizedBox(height: AppSpacing.md),
-      Text('Guesses', style: Theme.of(context).textTheme.titleMedium),
-      for (var index = 0; index < guesses.length; index++)
-        Text(
-          '${index + 1}. ${guesses[index].correct} of $total correct',
-          style: Theme.of(context).textTheme.bodyLarge,
-        ),
-    ];
-  }
-
   String _resultTitle() {
     if (snapshot.board?.practice == true) {
       final guesses = snapshot.board!.guesses;
@@ -678,7 +737,7 @@ class _TurnOrderPreview extends StatelessWidget {
       key: const Key('turn-order-preview'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('Turn order', style: text.titleMedium),
+        Text('Turn order', style: text.labelLarge),
         const SizedBox(height: AppSpacing.xs),
         Text(
           'This order repeats until someone solves the round.',
@@ -719,7 +778,7 @@ class _TurnSeat extends StatelessWidget {
               width: AppTouch.minimum,
               child: Text(
                 '$place',
-                style: Theme.of(context).textTheme.headlineSmall,
+                style: Theme.of(context).textTheme.titleMedium,
               ),
             ),
             Icon(
@@ -729,18 +788,10 @@ class _TurnSeat extends StatelessWidget {
             ),
             const SizedBox(width: AppSpacing.sm),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(name, style: Theme.of(context).textTheme.titleMedium),
-                  if (starts)
-                    Text(
-                      'Starts',
-                      style: Theme.of(context).textTheme.bodyLarge,
-                    ),
-                ],
-              ),
+              child: Text(name, style: Theme.of(context).textTheme.titleMedium),
             ),
+            if (starts)
+              Text('Starts', style: Theme.of(context).textTheme.bodyLarge),
           ],
         ),
       ),
@@ -815,28 +866,35 @@ class _PauseEditorState extends State<_PauseEditor> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (var index = 0; index < widget.roster.length; index++) ...[
-          TextField(
-            controller: _names[index],
-            maxLength: 20,
-            decoration: InputDecoration(
-              labelText: 'Name ${index + 1}',
-              counterText: '',
-            ),
-          ),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton(
-              style: TextButton.styleFrom(
-                minimumSize: const Size(AppTouch.minimum, AppTouch.minimum),
+          Row(
+            children: [
+              IconButton(
+                tooltip: 'Change icon',
+                onPressed: () => widget.onAvatar(
+                  widget.roster[index].id,
+                  widget.roster[index].avatarIndex + 1,
+                ),
+                icon: Icon(
+                  playerFaceFor(widget.roster[index].avatarIndex).icon,
+                  color: playerColorFor(index),
+                ),
+                constraints: const BoxConstraints(
+                  minWidth: AppTouch.minimum,
+                  minHeight: AppTouch.minimum,
+                ),
               ),
-              onPressed: () => widget.onAvatar(
-                widget.roster[index].id,
-                widget.roster[index].avatarIndex + 1,
+              const SizedBox(width: AppSpacing.xs),
+              Expanded(
+                child: TextField(
+                  controller: _names[index],
+                  maxLength: 20,
+                  decoration: InputDecoration(
+                    labelText: 'Name ${index + 1}',
+                    counterText: '',
+                  ),
+                ),
               ),
-              child: Text(
-                'Avatar: ${playerFaceFor(widget.roster[index].avatarIndex).label}',
-              ),
-            ),
+            ],
           ),
         ],
         const SizedBox(height: AppSpacing.sm),
@@ -953,16 +1011,161 @@ Widget _secondary({
   required String label,
   required VoidCallback? onPressed,
 }) {
-  return Padding(
-    padding: const EdgeInsets.only(top: AppSpacing.sm),
-    child: GameButton(
-      key: key,
-      label: label,
-      backgroundColor: AppColors.card,
-      foregroundColor: AppColors.cream,
-      onPressed: onPressed,
-    ),
-  );
+  return _QuietButton(key: key, label: label, onPressed: onPressed);
+}
+
+class _QuietButton extends StatelessWidget {
+  const _QuietButton({required this.label, required this.onPressed, super.key});
+
+  final String label;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: TextButton(
+        style: TextButton.styleFrom(
+          foregroundColor: AppColors.creamMuted,
+          minimumSize: const Size.fromHeight(AppTouch.minimum),
+          textStyle: AppTypography.button.copyWith(color: AppColors.creamMuted),
+        ),
+        onPressed: onPressed,
+        child: Text(label),
+      ),
+    );
+  }
+}
+
+class _SwapStatus extends StatelessWidget {
+  const _SwapStatus({required this.snapshot});
+
+  final MatchSnapshot snapshot;
+
+  @override
+  Widget build(BuildContext context) {
+    final guesses = snapshot.board?.guesses ?? const <BottleGuess>[];
+    final latest = guesses.isEmpty ? null : guesses.last.correct;
+    final total = snapshot.board?.target.length;
+    final hint = snapshot.board?.hint;
+    final detail = [
+      'Round ${snapshot.roundNumber}',
+      'Next ${nextPlayerName(snapshot)}',
+      if (latest != null && total != null) '$latest of $total correct',
+    ].join(' · ');
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          detail,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.labelLarge,
+        ),
+        if (hint != null) ...[
+          const SizedBox(height: AppSpacing.xxs),
+          Text(
+            'Position ${hint.position + 1} is ${bottleLetterFor(hint.bottle)}.',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelLarge,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _MatchHeader extends StatelessWidget {
+  const _MatchHeader({required this.snapshot, required this.showScores});
+
+  final MatchSnapshot snapshot;
+  final bool showScores;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final names = visiblePlayerNames(snapshot.roster);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Round ${snapshot.roundNumber} · '
+          '${snapshot.settings.bottleCount} bottles',
+          style: text.labelLarge,
+        ),
+        const SizedBox(height: AppSpacing.xxs),
+        Text(goalLabel(snapshot), style: text.titleMedium),
+        if (showScores) ...[
+          const SizedBox(height: AppSpacing.sm),
+          Wrap(
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
+            children: [
+              for (var index = 0; index < snapshot.roster.length; index++)
+                _ScoreChip(
+                  name: names[index],
+                  score: snapshot.scores[snapshot.roster[index].id] ?? 0,
+                  color: playerColorFor(index),
+                ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+bool _showsScores(MatchPhase phase) {
+  return phase == MatchPhase.roundIntroduction ||
+      phase == MatchPhase.roundResult ||
+      phase == MatchPhase.paused ||
+      phase == MatchPhase.championship ||
+      phase == MatchPhase.unfinishedMatch;
+}
+
+class _ScoreChip extends StatelessWidget {
+  const _ScoreChip({
+    required this.name,
+    required this.score,
+    required this.color,
+  });
+
+  final String name;
+  final int score;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(AppRadii.pill),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm,
+          vertical: AppSpacing.xs,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            DecoratedBox(
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+              child: const SizedBox(width: 10, height: 10),
+            ),
+            const SizedBox(width: AppSpacing.xs),
+            Text(
+              '$name $score',
+              style: Theme.of(
+                context,
+              ).textTheme.labelLarge?.copyWith(color: AppColors.cream),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 String _phaseName(MatchPhase? phase) {

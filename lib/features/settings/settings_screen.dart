@@ -6,6 +6,7 @@ import 'package:forui/forui.dart';
 
 import '../../application/controllers/settings_controller.dart';
 import '../../design_system/components/game_page.dart';
+import '../../design_system/components/section_card.dart';
 import '../../design_system/tokens/spacing.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -29,39 +30,46 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         error: (error, _) => Text('$error'),
         data: (value) => ListView(
           children: [
-            FSwitch(
-              value: value.soundEnabled,
-              semanticsLabel: 'Sound',
-              label: const Text('Sound'),
-              description: const Text('Selection and result sounds.'),
-              onChange: (enabled) => _save(
-                () => ref
-                    .read(settingsControllerProvider.notifier)
-                    .setSoundEnabled(enabled),
-              ),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            FSwitch(
-              value: value.hapticsEnabled,
-              semanticsLabel: 'Haptics',
-              label: const Text('Haptics'),
-              description: const Text('Vibration separate from sound.'),
-              onChange: (enabled) => _save(
-                () => ref
-                    .read(settingsControllerProvider.notifier)
-                    .setHapticsEnabled(enabled),
-              ),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            FSwitch(
-              value: value.reducedMotion,
-              semanticsLabel: 'Reduced motion',
-              label: const Text('Reduced motion'),
-              description: const Text('Short fades instead of movement.'),
-              onChange: (enabled) => _save(
-                () => ref
-                    .read(settingsControllerProvider.notifier)
-                    .setReducedMotion(enabled),
+            SectionCard(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Column(
+                children: [
+                  FSwitch(
+                    value: value.soundEnabled,
+                    semanticsLabel: 'Sound',
+                    label: const Text('Sound'),
+                    description: const Text('Selection and result sounds.'),
+                    onChange: (enabled) => _save(
+                      () => ref
+                          .read(settingsControllerProvider.notifier)
+                          .setSoundEnabled(enabled),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  FSwitch(
+                    value: value.hapticsEnabled,
+                    semanticsLabel: 'Haptics',
+                    label: const Text('Haptics'),
+                    description: const Text('Vibration separate from sound.'),
+                    onChange: (enabled) => _save(
+                      () => ref
+                          .read(settingsControllerProvider.notifier)
+                          .setHapticsEnabled(enabled),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  FSwitch(
+                    value: value.reducedMotion,
+                    semanticsLabel: 'Reduced motion',
+                    label: const Text('Reduced motion'),
+                    description: const Text('Short fades instead of movement.'),
+                    onChange: (enabled) => _save(
+                      () => ref
+                          .read(settingsControllerProvider.notifier)
+                          .setReducedMotion(enabled),
+                    ),
+                  ),
+                ],
               ),
             ),
             if (_error != null) ...[

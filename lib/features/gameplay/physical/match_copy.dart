@@ -51,14 +51,6 @@ String goalLabel(MatchSnapshot snapshot) {
   return '$name\'s goal: $score / $target wins';
 }
 
-String standingsLabel(MatchSnapshot snapshot) {
-  final names = visiblePlayerNames(snapshot.roster);
-  return [
-    for (var index = 0; index < snapshot.roster.length; index++)
-      '${names[index]} ${snapshot.scores[snapshot.roster[index].id] ?? 0}',
-  ].join(' · ');
-}
-
 String winConditionSummary(List<Player> roster, MatchSettings settings) {
   final target = settings.targetRoundWins;
   final wins = target == 1 ? 'round win' : 'round wins';

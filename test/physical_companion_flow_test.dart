@@ -220,6 +220,46 @@ void main() {
     );
   });
 
+  testWidgets('match settings steps the bottle count and can reject repeats', (
+    tester,
+  ) async {
+    final matches = MemoryMatchRepository();
+    await _pump(tester, matches);
+    await tester.tap(find.byKey(const Key('new-game')));
+    await tester.pumpAndSettle();
+    await _tap(tester, 'continue-to-rules');
+    await _tap(tester, 'settings-tab-bottles');
+
+    expect(find.text('5 bottles · Easy'), findsOneWidget);
+    expect(find.byKey(const Key('setup-bottle-5')), findsOneWidget);
+    expect(find.byKey(const Key('setup-bottle-6')), findsNothing);
+    expect(tester.widget<FSwitch>(find.byType(FSwitch)).value, isFalse);
+
+    await _tapTooltip(tester, 'More bottles');
+    expect(find.text('6 bottles · Easy'), findsOneWidget);
+    expect(find.byKey(const Key('setup-bottle-6')), findsOneWidget);
+
+    await _tapTooltip(tester, 'Fewer bottles');
+    expect(find.text('5 bottles · Easy'), findsOneWidget);
+    expect(find.byKey(const Key('setup-bottle-6')), findsNothing);
+
+    await _tapTooltip(tester, 'Fewer bottles');
+    expect(find.text('5 bottles · Easy'), findsOneWidget);
+
+    final reject = find.text('Reject previous combinations');
+    await tester.ensureVisible(reject);
+    await tester.pumpAndSettle();
+    await tester.tap(reject);
+    await tester.pumpAndSettle();
+    expect(tester.widget<FSwitch>(find.byType(FSwitch)).value, isTrue);
+
+    await _tap(tester, 'continue-to-review');
+    expect(find.text('Rejected'), findsOneWidget);
+    await _tap(tester, 'start-match');
+    expect(matches.active!.settings.rejectPreviousCombinations, isTrue);
+    expect(matches.active!.settings.bottleCount, 5);
+  });
+
   testWidgets('shuffle reorders players and the review shows the order', (
     tester,
   ) async {
@@ -249,6 +289,7 @@ void main() {
     expect(first, 'Bo');
 
     await _tap(tester, 'continue-to-rules');
+    await _tap(tester, 'settings-tab-turns');
     await _tap(tester, 'turn-order-linear');
     await _tap(tester, 'continue-to-review');
     expect(find.text('Linear'), findsOneWidget);
@@ -339,6 +380,14 @@ Future<void> _solveShownBoard(
 
 Future<void> _tap(WidgetTester tester, String key) async {
   final finder = find.byKey(Key(key));
+  await tester.ensureVisible(finder);
+  await tester.pumpAndSettle();
+  await tester.tap(finder);
+  await tester.pumpAndSettle();
+}
+
+Future<void> _tapTooltip(WidgetTester tester, String tooltip) async {
+  final finder = find.byTooltip(tooltip);
   await tester.ensureVisible(finder);
   await tester.pumpAndSettle();
   await tester.tap(finder);

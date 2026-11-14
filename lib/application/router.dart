@@ -14,33 +14,35 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/',
         name: 'home',
         builder: (context, state) => const HomeScreen(),
-      ),
-      GoRoute(
-        path: '/match',
-        name: 'match',
-        builder: (context, state) {
-          final extra = state.extra;
-          return PhysicalCompanionScreen(
-            initial: extra is SetupDraft ? extra : null,
-          );
-        },
         routes: [
           GoRoute(
-            path: 'play',
-            name: 'match-play',
-            builder: (context, state) => const PhysicalSessionScreen(),
+            path: 'match',
+            name: 'match',
+            builder: (context, state) {
+              final extra = state.extra;
+              return PhysicalCompanionScreen(
+                initial: extra is SetupDraft ? extra : null,
+              );
+            },
+            routes: [
+              GoRoute(
+                path: 'play',
+                name: 'match-play',
+                builder: (context, state) => const PhysicalSessionScreen(),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: 'settings',
+            name: 'settings',
+            builder: (context, state) => const SettingsScreen(),
+          ),
+          GoRoute(
+            path: 'recovery',
+            name: 'recovery',
+            builder: (context, state) => const RecoveryScreen(),
           ),
         ],
-      ),
-      GoRoute(
-        path: '/settings',
-        name: 'settings',
-        builder: (context, state) => const SettingsScreen(),
-      ),
-      GoRoute(
-        path: '/recovery',
-        name: 'recovery',
-        builder: (context, state) => const RecoveryScreen(),
       ),
     ],
   );

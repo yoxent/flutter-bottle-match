@@ -20,7 +20,7 @@ void main() {
     }
   });
 
-  test('feedback counts exact positions and blocks a repeated order', () {
+  test('feedback counts exact positions and repeats unless rejected', () {
     const target = [0, 1, 2, 3, 4];
     const arrangement = [0, 1, 2, 4, 3];
 
@@ -40,7 +40,15 @@ void main() {
       arrangement: arrangement,
       previous: const [arrangement],
     );
-    expect(repeated, isA<GuessBlocked>());
+    expect(repeated, isA<GuessCounted>());
+
+    final blocked = judgeArrangement(
+      target: target,
+      arrangement: arrangement,
+      previous: const [arrangement],
+      rejectRepeated: true,
+    );
+    expect(blocked, isA<GuessBlocked>());
 
     final solved = judgeArrangement(
       target: target,

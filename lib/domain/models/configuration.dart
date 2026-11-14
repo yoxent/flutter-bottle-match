@@ -58,6 +58,7 @@ class MatchSettings {
     this.bottleCount = MatchConstraints.defaultBottles,
     this.timer = TurnTimerDuration.off,
     this.turnOrder = TurnOrder.random,
+    this.rejectPreviousCombinations = false,
     this.physicalEquipmentConfirmed = false,
   });
 
@@ -67,6 +68,9 @@ class MatchSettings {
   final int bottleCount;
   final TurnTimerDuration timer;
   final TurnOrder turnOrder;
+
+  /// When true, a combination that was already checked cannot be submitted again.
+  final bool rejectPreviousCombinations;
 
   /// Kept on the version 1 snapshot. Play starts the match, so this value
   /// does not decide whether setup is valid.
@@ -79,6 +83,7 @@ class MatchSettings {
     'bottleCount': bottleCount,
     'timer': timer.name,
     'turnOrder': turnOrder.name,
+    'rejectPreviousCombinations': rejectPreviousCombinations,
     'physicalEquipmentConfirmed': physicalEquipmentConfirmed,
   };
 
@@ -95,6 +100,8 @@ class MatchSettings {
         'timer',
       ),
       turnOrder: _readTurnOrder(object),
+      rejectPreviousCombinations:
+          object.optionalBool('rejectPreviousCombinations') ?? false,
       physicalEquipmentConfirmed: object.boolean('physicalEquipmentConfirmed'),
     );
   }

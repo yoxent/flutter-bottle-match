@@ -50,13 +50,16 @@ GuessCheck judgeArrangement({
   required List<int> target,
   required List<int> arrangement,
   required List<List<int>> previous,
+  bool rejectRepeated = false,
 }) {
   if (!_permutation(arrangement, target.length)) {
     return const GuessBlocked('Arrange each bottle once.');
   }
-  for (final earlier in previous) {
-    if (_same(earlier, arrangement)) {
-      return const GuessBlocked('That order was already checked.');
+  if (rejectRepeated) {
+    for (final earlier in previous) {
+      if (_same(earlier, arrangement)) {
+        return const GuessBlocked('That order was already checked.');
+      }
     }
   }
   final correct = _exactCount(target, arrangement);

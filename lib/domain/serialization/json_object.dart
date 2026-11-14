@@ -50,7 +50,18 @@ class JsonObject {
   }
 
   bool boolean(String key) {
+    final value = optionalBool(key);
+    if (value == null) {
+      throw FormatException('Expected a boolean for $key.');
+    }
+    return value;
+  }
+
+  bool? optionalBool(String key) {
     final value = _json[key];
+    if (value == null) {
+      return null;
+    }
     if (value is! bool) {
       throw FormatException('Expected a boolean for $key.');
     }

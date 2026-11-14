@@ -8,7 +8,10 @@ import 'package:go_router/go_router.dart';
 
 import '../../../application/controllers/match_session_controller.dart';
 import '../../../design_system/components/buttons/game_button.dart';
+import '../../../design_system/components/fact_card.dart';
 import '../../../design_system/components/game_page.dart';
+import '../../../design_system/components/section_card.dart';
+import '../../../design_system/components/segmented_tabs.dart';
 import '../../../design_system/tokens/colors.dart';
 import '../../../design_system/tokens/radii.dart';
 import '../../../design_system/tokens/spacing.dart';
@@ -17,6 +20,7 @@ import '../../../domain/models/player.dart';
 import '../../../domain/rules/match_constraints.dart';
 import '../../../domain/rules/match_setup_check.dart';
 import '../../../domain/rules/player_names.dart';
+import '../board/bottle_count_picker.dart';
 import 'match_copy.dart';
 import 'player_faces.dart';
 import 'player_icon_picker.dart';
@@ -44,11 +48,13 @@ class _PhysicalCompanionScreenState
   final List<TextEditingController> _names = [];
   final List<int> _avatars = [];
   var _step = 0;
+  var _panel = 0;
   var _rule = WinRule.firstToTarget;
   var _target = MatchConstraints.defaultTarget;
   var _bottles = MatchConstraints.defaultBottles;
   var _timer = TurnTimerDuration.off;
   var _turnOrder = TurnOrder.random;
+  var _rejectPrevious = false;
   String? _selectedId;
   String? _error;
   var _starting = false;
@@ -70,6 +76,7 @@ class _PhysicalCompanionScreenState
     _bottles = initial.settings.bottleCount;
     _timer = initial.settings.timer;
     _turnOrder = initial.settings.turnOrder;
+    _rejectPrevious = initial.settings.rejectPreviousCombinations;
     _selectedId = initial.settings.selectedPlayerId ?? initial.roster.first.id;
   }
 
@@ -89,7 +96,10 @@ class _PhysicalCompanionScreenState
         if (didPop || _step == 0) {
           return;
         }
-        setState(() => _step -= 1);
+        setState(() {
+          _error = null;
+          _step -= 1;
+        });
       },
       child: GamePage(
         title: switch (_step) {
@@ -98,23 +108,79 @@ class _PhysicalCompanionScreenState
           _ => 'Review',
         },
         showBack: true,
+        footer: _footer(),
         body: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              ...switch (_step) {
-                0 => _playerStep(),
-                1 => _rulesStep(),
-                _ => _reviewStep(),
-              },
-              if (_error != null) ...[
-                const SizedBox(height: AppSpacing.md),
-                Text(_error!, style: Theme.of(context).textTheme.bodyLarge),
-              ],
-            ],
+            children: switch (_step) {
+              0 => _playerStep(),
+              1 => _rulesStep(),
+              _ => _reviewStep(),
+            },
           ),
         ),
       ),
+    );
+  }
+
+  Widget _footer() {
+    final text = Theme.of(context).textTheme;
+    final check = _step == 2
+        ? MatchSetupCheck.evaluate(roster: _roster(), settings: _settings())
+        : null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (_error != null) ...[
+          Text(_error!, style: text.bodyLarge),
+          const SizedBox(height: AppSpacing.sm),
+        ],
+        ...switch (_step) {
+          0 => [
+            GameButton(
+              key: const Key('continue-to-rules'),
+              label: 'Continue',
+              backgroundColor: AppColors.hotPink,
+              onPressed: () => setState(() {
+                _error = null;
+                _step = 1;
+              }),
+            ),
+          ],
+          1 => [
+            GameButton(
+              key: const Key('continue-to-review'),
+              label: 'Review match',
+              backgroundColor: AppColors.yellow,
+              onPressed: () => setState(() {
+                _error = null;
+                _step = 2;
+              }),
+            ),
+          ],
+          _ => [
+            GameButton(
+              key: const Key('practice-turn'),
+              label: 'Practice turn',
+              backgroundColor: AppColors.cyan,
+              foregroundColor: AppColors.ink,
+              onPressed: check?.isValid != true || _starting
+                  ? null
+                  : () => _start(practice: true),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            GameButton(
+              key: const Key('start-match'),
+              label: _starting ? 'Starting' : 'Play game',
+              backgroundColor: AppColors.hotPink,
+              onPressed: check?.isValid != true || _starting
+                  ? null
+                  : () => _start(),
+            ),
+          ],
+        },
+      ],
     );
   }
 
@@ -145,39 +211,32 @@ class _PhysicalCompanionScreenState
       ),
       const SizedBox(height: AppSpacing.md),
       for (var index = 0; index < _names.length; index++) ...[
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            _PlayerIconButton(
-              index: index,
-              face: playerFaceFor(_avatars[index]),
-              onPressed: () => _chooseIcon(index),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: TextField(
-                controller: _names[index],
-                maxLength: MatchConstraints.maxNameLength,
-                textCapitalization: TextCapitalization.words,
-                decoration: InputDecoration(
-                  labelText: 'Player ${index + 1}',
-                  counterText: '',
+        SectionCard(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              _PlayerIconButton(
+                index: index,
+                face: playerFaceFor(_avatars[index]),
+                onPressed: () => _chooseIcon(index),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: TextField(
+                  controller: _names[index],
+                  maxLength: MatchConstraints.maxNameLength,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: InputDecoration(
+                    labelText: 'Player ${index + 1}',
+                    counterText: '',
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         const SizedBox(height: AppSpacing.sm),
       ],
-      GameButton(
-        key: const Key('continue-to-rules'),
-        label: 'Continue',
-        backgroundColor: AppColors.hotPink,
-        onPressed: () => setState(() {
-          _error = null;
-          _step = 1;
-        }),
-      ),
     ];
   }
 
@@ -185,7 +244,28 @@ class _PhysicalCompanionScreenState
     final roster = _roster();
     final names = visiblePlayerNames(roster);
     return [
-      Text('Win rule', style: Theme.of(context).textTheme.titleMedium),
+      SegmentedTabs(
+        tabs: const [
+          SegmentedTab(label: 'Goal', tabKey: Key('settings-tab-goal')),
+          SegmentedTab(label: 'Bottles', tabKey: Key('settings-tab-bottles')),
+          SegmentedTab(label: 'Turns', tabKey: Key('settings-tab-turns')),
+        ],
+        selectedIndex: _panel,
+        onSelected: (index) => setState(() => _panel = index),
+      ),
+      const SizedBox(height: AppSpacing.lg),
+      ...switch (_panel) {
+        0 => _goalPanel(roster, names),
+        1 => _bottlePanel(),
+        _ => _turnPanel(),
+      },
+    ];
+  }
+
+  List<Widget> _goalPanel(List<Player> roster, List<String> names) {
+    final text = Theme.of(context).textTheme;
+    return [
+      Text('Win rule', style: text.labelLarge),
       const SizedBox(height: AppSpacing.xs),
       _Choice(
         label: 'First player to the target',
@@ -202,10 +282,7 @@ class _PhysicalCompanionScreenState
       ),
       if (_rule == WinRule.selectedPlayerReachesTarget) ...[
         const SizedBox(height: AppSpacing.sm),
-        Text(
-          'Only this player ends the match.',
-          style: Theme.of(context).textTheme.bodyLarge,
-        ),
+        Text('Only this player ends the match.', style: text.bodyLarge),
         const SizedBox(height: AppSpacing.xs),
         for (var index = 0; index < roster.length; index++)
           _Choice(
@@ -226,7 +303,11 @@ class _PhysicalCompanionScreenState
             ? null
             : () => setState(() => _target += 1),
       ),
-      const SizedBox(height: AppSpacing.md),
+    ];
+  }
+
+  List<Widget> _bottlePanel() {
+    return [
       _Stepper(
         label: '$_bottles bottles · ${bottleDifficultyLabel(_bottles)}',
         fewerLabel: 'Fewer bottles',
@@ -240,12 +321,28 @@ class _PhysicalCompanionScreenState
       ),
       const SizedBox(height: AppSpacing.xs),
       Text(
-        'The difficulty label does not change scoring or the timer. '
-        'Each round uses this many digital bottles.',
+        'The difficulty label does not change scoring or the timer.',
         style: Theme.of(context).textTheme.bodyLarge,
       ),
+      const SizedBox(height: AppSpacing.sm),
+      BottleCountPicker(count: _bottles),
       const SizedBox(height: AppSpacing.md),
-      Text('Player order', style: Theme.of(context).textTheme.titleMedium),
+      FSwitch(
+        value: _rejectPrevious,
+        semanticsLabel: 'Reject previous combinations',
+        label: const Text('Reject previous combinations'),
+        description: const Text(
+          'A combination that was already checked cannot be submitted again.',
+        ),
+        onChange: (enabled) => setState(() => _rejectPrevious = enabled),
+      ),
+    ];
+  }
+
+  List<Widget> _turnPanel() {
+    final text = Theme.of(context).textTheme;
+    return [
+      Text('Player order', style: text.labelLarge),
       const SizedBox(height: AppSpacing.xs),
       for (final choice in TurnOrder.values)
         _Choice(
@@ -256,7 +353,7 @@ class _PhysicalCompanionScreenState
           onPressed: () => setState(() => _turnOrder = choice),
         ),
       const SizedBox(height: AppSpacing.md),
-      Text('Turn timer', style: Theme.of(context).textTheme.titleMedium),
+      Text('Turn timer', style: text.labelLarge),
       const SizedBox(height: AppSpacing.xs),
       for (final choice in TurnTimerDuration.values)
         _Choice(
@@ -269,16 +366,6 @@ class _PhysicalCompanionScreenState
           selected: _timer == choice,
           onPressed: () => setState(() => _timer = choice),
         ),
-      const SizedBox(height: AppSpacing.lg),
-      GameButton(
-        key: const Key('continue-to-review'),
-        label: 'Review match',
-        backgroundColor: AppColors.yellow,
-        onPressed: () => setState(() {
-          _error = null;
-          _step = 2;
-        }),
-      ),
     ];
   }
 
@@ -288,18 +375,19 @@ class _PhysicalCompanionScreenState
     final names = visiblePlayerNames(roster);
     final check = MatchSetupCheck.evaluate(roster: roster, settings: settings);
     return [
-      _SummaryLine(label: 'Win', value: winConditionSummary(roster, settings)),
-      _SummaryLine(
-        label: 'Players',
-        value: '${names.length}: ${names.join(', ')}',
-      ),
-      _SummaryLine(
+      FactCard(label: 'Win', value: winConditionSummary(roster, settings)),
+      FactCard(label: 'Players', value: '${names.length}: ${names.join(', ')}'),
+      FactCard(
         label: 'Bottles',
         value:
             '${settings.bottleCount} · ${bottleDifficultyLabel(settings.bottleCount)}',
       ),
-      _SummaryLine(label: 'Timer', value: timerSummary(settings.timer)),
-      _SummaryLine(label: 'Order', value: turnOrderName(settings.turnOrder)),
+      FactCard(label: 'Timer', value: timerSummary(settings.timer)),
+      FactCard(label: 'Order', value: turnOrderName(settings.turnOrder)),
+      FactCard(
+        label: 'Repeats',
+        value: settings.rejectPreviousCombinations ? 'Rejected' : 'Allowed',
+      ),
       Text(
         'Everyone shares one hidden bottle order. Drag a bottle onto another, '
         'or tap two bottles, to swap them. Check arrangement shows how many '
@@ -310,23 +398,6 @@ class _PhysicalCompanionScreenState
         const SizedBox(height: AppSpacing.md),
         Text(check.issues.first, style: Theme.of(context).textTheme.bodyLarge),
       ],
-      const SizedBox(height: AppSpacing.lg),
-      GameButton(
-        key: const Key('practice-turn'),
-        label: 'Practice turn',
-        backgroundColor: AppColors.cyan,
-        foregroundColor: AppColors.ink,
-        onPressed: !check.isValid || _starting
-            ? null
-            : () => _start(practice: true),
-      ),
-      const SizedBox(height: AppSpacing.sm),
-      GameButton(
-        key: const Key('start-match'),
-        label: _starting ? 'Starting' : 'Play game',
-        backgroundColor: AppColors.hotPink,
-        onPressed: !check.isValid || _starting ? null : () => _start(),
-      ),
     ];
   }
 
@@ -513,6 +584,7 @@ class _PhysicalCompanionScreenState
       bottleCount: _bottles,
       timer: _timer,
       turnOrder: _turnOrder,
+      rejectPreviousCombinations: _rejectPrevious,
       physicalEquipmentConfirmed: true,
     );
   }
@@ -535,18 +607,24 @@ class _Stepper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        _StepButton(label: fewerLabel, onPressed: onFewer),
-        Expanded(
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.titleMedium,
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(AppRadii.md),
+      ),
+      child: Row(
+        children: [
+          _StepButton(label: fewerLabel, onPressed: onFewer),
+          Expanded(
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
           ),
-        ),
-        _StepButton(label: moreLabel, onPressed: onMore),
-      ],
+          _StepButton(label: moreLabel, onPressed: onMore),
+        ],
+      ),
     );
   }
 }
@@ -612,44 +690,6 @@ class _PlayerIconButton extends StatelessWidget {
             width: AppTouch.minimum,
             height: AppTouch.minimum,
             child: Icon(face.icon, color: playerColorFor(index)),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SummaryLine extends StatelessWidget {
-  const _SummaryLine({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context).textTheme;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: AppColors.card,
-          borderRadius: BorderRadius.circular(AppRadii.md),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.md,
-            vertical: AppSpacing.sm,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: theme.titleMedium?.copyWith(color: AppColors.yellow),
-              ),
-              const SizedBox(height: AppSpacing.xxs),
-              Text(value, style: theme.bodyLarge),
-            ],
           ),
         ),
       ),

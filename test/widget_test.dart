@@ -15,7 +15,7 @@ void main() {
     expect(find.text('New game'), findsOneWidget);
     expect(find.text('Physical Companion'), findsNothing);
     expect(find.text('Fully Digital'), findsNothing);
-    expect(find.text('Star'), findsOneWidget);
+    expect(find.text('Star'), findsNothing);
 
     await tester.tap(find.byKey(const Key('new-game')));
     await tester.pumpAndSettle();

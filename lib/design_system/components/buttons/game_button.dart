@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../tokens/colors.dart';
 import '../../tokens/radii.dart';
 import '../../tokens/spacing.dart';
+import '../../tokens/typography.dart';
 
 class GameButton extends StatelessWidget {
   const GameButton({
@@ -30,23 +31,31 @@ class GameButton extends StatelessWidget {
       excludeSemantics: true,
       child: FilledButton(
         style: FilledButton.styleFrom(
-          minimumSize: const Size.fromHeight(56),
+          minimumSize: const Size.fromHeight(AppTouch.minimum),
           backgroundColor: backgroundColor,
           foregroundColor: foregroundColor,
           disabledBackgroundColor: backgroundColor.withValues(alpha: 0.4),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadii.lg),
           ),
-          textStyle: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+          textStyle: AppTypography.button,
         ),
         onPressed: onPressed,
         child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             if (icon != null) ...[
               Icon(icon, color: foregroundColor),
               const SizedBox(width: AppSpacing.sm),
             ],
-            Expanded(child: Text(label, textAlign: TextAlign.start)),
+            Flexible(
+              child: Text(
+                label,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
       ),

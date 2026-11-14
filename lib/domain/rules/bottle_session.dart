@@ -84,6 +84,7 @@ SessionResult submitArrangement(
     target: board.target,
     arrangement: board.pending,
     previous: [for (final guess in board.guesses) guess.arrangement],
+    rejectRepeated: snapshot.settings.rejectPreviousCombinations,
   );
   if (check is GuessBlocked) {
     return SessionRejected(check.reason);

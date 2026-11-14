@@ -115,5 +115,6 @@ void main() {
     });
 
     expect(settings.turnOrder, TurnOrder.random);
+    expect(settings.rejectPreviousCombinations, isFalse);
   });
 }

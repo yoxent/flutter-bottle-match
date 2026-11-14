@@ -242,7 +242,7 @@ void main() {
     },
   );
 
-  test('a repeated order is blocked and does not use the turn', () {
+  test('a repeated order counts unless the match rejects it', () {
     final at = sampleUpdatedAt;
     var match = _accept(openFirstRound(_setup(), random: Random(1), at: at));
     match = _accept(beginRound(match, at: at));
@@ -254,9 +254,29 @@ void main() {
     expect(match.wins, isEmpty);
 
     match = _accept(markPlayerReady(match, at: at));
-    expect(submitArrangement(match, at: at), isA<SessionRejected>());
-    expect(match.phase, MatchPhase.activeTurn);
-    expect(match.board!.guesses, hasLength(1));
+    match = _accept(submitArrangement(match, at: at));
+    expect(match.phase, MatchPhase.playerHandoff);
+    expect(match.board!.guesses, hasLength(2));
+
+    final rejecting = _accept(
+      openFirstRound(
+        _setup(
+          settings: const MatchSettings(
+            targetRoundWins: 1,
+            physicalEquipmentConfirmed: true,
+            rejectPreviousCombinations: true,
+          ),
+        ),
+        random: Random(1),
+        at: at,
+      ),
+    );
+    var blocked = _accept(beginRound(rejecting, at: at));
+    blocked = _accept(markPlayerReady(blocked, at: at));
+    blocked = _accept(submitArrangement(blocked, at: at));
+    blocked = _accept(markPlayerReady(blocked, at: at));
+    expect(submitArrangement(blocked, at: at), isA<SessionRejected>());
+    expect(blocked.board!.guesses, hasLength(1));
   });
 
   test('the timer discards an unsubmitted arrangement', () {

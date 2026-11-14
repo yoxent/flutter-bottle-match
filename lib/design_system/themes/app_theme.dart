@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:forui/forui.dart';
 
 import '../tokens/colors.dart';
+import '../tokens/radii.dart';
+import '../tokens/spacing.dart';
 import '../tokens/typography.dart';
 
 /// Material theme for game screens, plus a Forui theme for standard controls.
@@ -28,6 +30,34 @@ abstract final class AppTheme {
       scaffoldBackgroundColor: AppColors.background,
       textTheme: AppTypography.textTheme(),
       splashFactory: InkSparkle.splashFactory,
+      inputDecorationTheme: const InputDecorationTheme(
+        filled: true,
+        fillColor: AppColors.background,
+        labelStyle: AppTypography.label,
+        floatingLabelStyle: TextStyle(
+          fontSize: 14,
+          height: 1.3,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.2,
+          color: AppColors.yellow,
+        ),
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.md,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(AppRadii.md)),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(AppRadii.md)),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(AppRadii.md)),
+          borderSide: BorderSide(color: AppColors.yellow, width: 2),
+        ),
+      ),
     );
   }
 

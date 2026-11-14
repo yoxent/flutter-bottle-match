@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../design_system/tokens/colors.dart';
-import '../../../design_system/tokens/radii.dart';
 import '../../../design_system/tokens/spacing.dart';
 import '../../../domain/models/bottle_board.dart';
 import 'bottle_faces.dart';
+import 'milk_bottle.dart';
 
 /// The shared arrangement. A drag onto another bottle swaps those two.
 /// Tapping two bottles, or Move to position, does the same swap.
@@ -44,28 +44,22 @@ class _BottleRackState extends State<BottleRack> {
       children: [
         if (hint != null) ...[
           Text(
-            'Position ${hint.position + 1} is the '
-            '${bottleFaceFor(hint.bottle).label} bottle.',
+            'Position ${hint.position + 1} is '
+            '${bottleLetterFor(hint.bottle)}.',
             style: Theme.of(context).textTheme.bodyLarge,
           ),
           const SizedBox(height: AppSpacing.sm),
         ],
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: widget.arrangement.length,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            mainAxisSpacing: AppSpacing.xs,
-            crossAxisSpacing: AppSpacing.xs,
-            childAspectRatio: 0.78,
+        Expanded(
+          child: BottleGrid(
+            itemCount: widget.arrangement.length,
+            itemBuilder: (context, index) => _tile(index),
           ),
-          itemBuilder: (context, index) => _tile(index),
         ),
         if (selected != null) ...[
-          const SizedBox(height: AppSpacing.sm),
+          const SizedBox(height: AppSpacing.xs),
           Text(
-            'Move ${bottleFaceFor(widget.arrangement[selected]).label} to',
+            'Move ${bottleLetterFor(widget.arrangement[selected])} to',
             style: Theme.of(context).textTheme.bodyLarge,
           ),
           const SizedBox(height: AppSpacing.xs),
@@ -100,19 +94,29 @@ class _BottleRackState extends State<BottleRack> {
   }
 
   Widget _tile(int index) {
-    final face = bottleFaceFor(widget.arrangement[index]);
+    final bottle = widget.arrangement[index];
+    final face = bottleFaceFor(bottle);
+    final letter = bottleLetterFor(bottle);
     final selected = _selected == index;
     final label =
-        'Position ${index + 1}, ${face.label} bottle'
+        'Position ${index + 1}, $letter'
         '${selected ? ', selected' : ''}';
-    final tile = _BottleTile(index: index, face: face, selected: selected);
+    MilkBottle tile() {
+      return MilkBottle(
+        color: face.color,
+        filled: true,
+        selected: selected,
+        letter: letter,
+      );
+    }
+
     return Draggable<int>(
       data: index,
       feedback: Material(
         color: Colors.transparent,
-        child: SizedBox(width: 96, height: 120, child: tile),
+        child: SizedBox(width: 88, height: 168, child: tile()),
       ),
-      childWhenDragging: Opacity(opacity: 0.35, child: tile),
+      childWhenDragging: Opacity(opacity: 0.35, child: tile()),
       child: DragTarget<int>(
         onWillAcceptWithDetails: (details) => details.data != index,
         onAcceptWithDetails: (details) => widget.onSwap(details.data, index),
@@ -125,7 +129,7 @@ class _BottleRackState extends State<BottleRack> {
               key: Key('bottle-position-$index'),
               behavior: HitTestBehavior.opaque,
               onTap: () => _tap(index),
-              child: SizedBox.expand(child: tile),
+              child: SizedBox.expand(child: tile()),
             ),
           );
         },
@@ -141,50 +145,6 @@ class _BottleRackState extends State<BottleRack> {
     }
     widget.onSwap(selected, index);
     setState(() => _selected = null);
-  }
-}
-
-class _BottleTile extends StatelessWidget {
-  const _BottleTile({
-    required this.index,
-    required this.face,
-    required this.selected,
-  });
-
-  final int index;
-  final BottleFace face;
-  final bool selected;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: AppColors.cream,
-        borderRadius: BorderRadius.circular(AppRadii.md),
-        border: Border.all(
-          color: selected ? AppColors.hotPink : face.color,
-          width: selected ? 4 : 6,
-        ),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            '${index + 1}',
-            style: Theme.of(
-              context,
-            ).textTheme.labelLarge?.copyWith(color: AppColors.ink),
-          ),
-          Icon(face.icon, color: face.color, size: 28),
-          Text(
-            face.label,
-            style: Theme.of(
-              context,
-            ).textTheme.labelLarge?.copyWith(color: AppColors.ink),
-          ),
-        ],
-      ),
-    );
   }
 }
 
