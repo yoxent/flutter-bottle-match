@@ -14,10 +14,42 @@ void main() {
       expect(board.target.toSet(), {0, 1, 2, 3, 4});
       expect(board.committed.toSet(), board.target.toSet());
       expect(board.committed, isNot(board.target));
+      expect(board.opening, board.committed);
       expect(board.guesses, isEmpty);
       expect(board.hint, isNull);
       expect(board.practice, isFalse);
     }
+  });
+
+  test('letters follow the opening order and stay with each bottle', () {
+    final board = dealBoard(count: 5, random: Random(3));
+    final letters = [
+      for (final bottle in board.opening)
+        roundBottleLetter(board.labelOrder, bottle),
+    ];
+
+    expect(letters, ['A', 'B', 'C', 'D', 'E']);
+
+    final swapped = swapBottles(board.pending, 0, 1)!;
+    expect(roundBottleLetter(board.labelOrder, swapped[0]), 'B');
+    expect(roundBottleLetter(board.labelOrder, swapped[1]), 'A');
+    expect(board.labelOrder, board.opening);
+  });
+
+  test('a board without an opening keeps identity letters', () {
+    final board = BottleBoard.fromJson(const {
+      'target': [2, 0, 1],
+      'committed': [0, 1, 2],
+      'pending': [0, 1, 2],
+      'guesses': <Object?>[],
+      'hint': null,
+      'practice': false,
+    });
+
+    expect(board.opening, isEmpty);
+    expect(board.labelOrder, [0, 1, 2]);
+    expect(roundBottleLetter(board.labelOrder, 0), 'A');
+    expect(roundBottleLetter(board.labelOrder, 2), 'C');
   });
 
   test('feedback counts exact positions and repeats unless rejected', () {

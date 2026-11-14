@@ -15,15 +15,13 @@ class BottleCountPicker extends StatelessWidget {
       itemCount: count,
       itemBuilder: (context, index) {
         final face = bottleFaceFor(index);
-        final letter = bottleLetterFor(index);
         return Semantics(
-          label: 'Bottle $letter',
+          label: 'Bottle ${index + 1}',
           child: MilkBottle(
             key: Key('setup-bottle-${index + 1}'),
             color: face.color,
             filled: true,
             selected: false,
-            letter: letter,
           ),
         );
       },

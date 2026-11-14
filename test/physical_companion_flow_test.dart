@@ -232,6 +232,7 @@ void main() {
 
     expect(find.text('5 bottles · Easy'), findsOneWidget);
     expect(find.byKey(const Key('setup-bottle-5')), findsOneWidget);
+    expect(find.text('A'), findsNothing);
     expect(find.byKey(const Key('setup-bottle-6')), findsNothing);
     expect(tester.widget<FSwitch>(find.byType(FSwitch)).value, isFalse);
 

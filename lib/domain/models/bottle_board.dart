@@ -49,6 +49,7 @@ class BottleBoard {
     required this.target,
     required this.committed,
     required this.pending,
+    this.opening = const [],
     this.guesses = const [],
     this.hint,
     this.practice = false,
@@ -57,9 +58,21 @@ class BottleBoard {
   final List<int> target;
   final List<int> committed;
   final List<int> pending;
+
+  /// The order first shown this round. Letters A, B, C are assigned from it.
+  /// An empty list is an older save, whose letters stay tied to bottle identity.
+  final List<int> opening;
   final List<BottleGuess> guesses;
   final BottleHint? hint;
   final bool practice;
+
+  /// Positions that own this round's letters. Missing history uses identity.
+  List<int> get labelOrder {
+    if (opening.length == target.length) {
+      return opening;
+    }
+    return [for (var index = 0; index < target.length; index++) index];
+  }
 
   BottleBoard copyWith({
     List<int>? committed,
@@ -73,6 +86,7 @@ class BottleBoard {
       target: target,
       committed: committed ?? this.committed,
       pending: pending ?? this.pending,
+      opening: opening,
       guesses: guesses ?? this.guesses,
       hint: clearHint ? null : (hint ?? this.hint),
       practice: practice ?? this.practice,
@@ -83,6 +97,7 @@ class BottleBoard {
     'target': target,
     'committed': committed,
     'pending': pending,
+    'opening': opening,
     'guesses': guesses.map((guess) => guess.toJson()).toList(),
     'hint': hint?.toJson(),
     'practice': practice,
@@ -91,10 +106,14 @@ class BottleBoard {
   factory BottleBoard.fromJson(Map<String, Object?> json) {
     final object = JsonObject(json);
     final hint = object.asMap()['hint'];
+    final saved = object.asMap();
     return BottleBoard(
       target: _intList(object, 'target'),
       committed: _intList(object, 'committed'),
       pending: _intList(object, 'pending'),
+      opening: saved.containsKey('opening')
+          ? _intList(object, 'opening')
+          : const [],
       guesses: [
         for (final guess in object.objectList('guesses'))
           BottleGuess.fromJson(guess.asMap()),

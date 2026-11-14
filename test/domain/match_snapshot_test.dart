@@ -39,6 +39,7 @@ void main() {
       target: [0, 1, 2, 3, 4],
       committed: [1, 0, 2, 3, 4],
       pending: [1, 0, 2, 4, 3],
+      opening: [2, 0, 1, 3, 4],
       guesses: [
         BottleGuess(arrangement: [1, 0, 2, 3, 4], correct: 3),
       ],
@@ -53,6 +54,7 @@ void main() {
     expect(restored.schemaVersion, 2);
     expect(restored.board!.target, board.target);
     expect(restored.board!.pending, board.pending);
+    expect(restored.board!.opening, board.opening);
     expect(restored.board!.guesses.single.correct, 3);
 
     final raw = SnapshotCodec.encode(

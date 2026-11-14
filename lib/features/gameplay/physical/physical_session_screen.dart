@@ -23,7 +23,6 @@ import '../../../domain/rules/bottle_round.dart';
 import '../../../domain/rules/goal_evaluation.dart';
 import '../../../domain/rules/phase_transition.dart';
 import '../../../domain/rules/player_names.dart';
-import '../board/bottle_faces.dart';
 import '../board/bottle_rack.dart';
 import 'match_copy.dart';
 import 'physical_companion_screen.dart';
@@ -287,6 +286,7 @@ class _SessionBody extends ConsumerWidget {
           Expanded(
             child: BottleRack(
               arrangement: snapshot.board!.pending,
+              opening: snapshot.board!.labelOrder,
               onSwap: (from, to) =>
                   onRun(() => notifier.moveBottle(from: from, to: to)),
             ),
@@ -493,7 +493,7 @@ class _SessionBody extends ConsumerWidget {
             const SizedBox(height: AppSpacing.md),
             Text(
               'Position ${snapshot.board!.hint!.position + 1} is '
-              '${bottleLetterFor(snapshot.board!.hint!.bottle)}.',
+              '${roundBottleLetter(snapshot.board!.labelOrder, snapshot.board!.hint!.bottle)}.',
               style: text.bodyLarge,
             ),
           ],
@@ -719,7 +719,7 @@ class _SessionBody extends ConsumerWidget {
     }
     if (board != null && snapshot.wins.isNotEmpty) {
       final winner = visibleName(snapshot.roster, snapshot.wins.last.winnerId);
-      return '$winner solved the order: ${bottleOrderLabel(board.target)}.';
+      return '$winner solved the order: ${roundOrderLabel(board.labelOrder, board.target)}.';
     }
     return 'The round is recorded. Check the standings above.';
   }
@@ -980,7 +980,7 @@ class _ChampionshipState extends State<_Championship>
           if (widget.snapshot.board != null) ...[
             const SizedBox(height: AppSpacing.sm),
             Text(
-              'Solved order: ${bottleOrderLabel(widget.snapshot.board!.target)}.',
+              'Solved order: ${roundOrderLabel(widget.snapshot.board!.labelOrder, widget.snapshot.board!.target)}.',
               style: text.bodyLarge,
             ),
           ],
@@ -1065,7 +1065,7 @@ class _SwapStatus extends StatelessWidget {
         if (hint != null) ...[
           const SizedBox(height: AppSpacing.xxs),
           Text(
-            'Position ${hint.position + 1} is ${bottleLetterFor(hint.bottle)}.',
+            'Position ${hint.position + 1} is ${roundBottleLetter(snapshot.board!.labelOrder, hint.bottle)}.',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.labelLarge,

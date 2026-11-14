@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../design_system/tokens/colors.dart';
 
-/// One bottle identity. The liquid color and a letter travel together.
-/// The drawn bottle is the Lucide milk glyph, with a dark outline.
+/// One bottle identity. The liquid color stays with the bottle.
+/// Letters are assigned per round, from the opening order.
 class BottleFace {
   const BottleFace({required this.label, required this.color});
 
@@ -32,14 +32,4 @@ const bottleFaces = <BottleFace>[
 BottleFace bottleFaceFor(int bottle) {
   final index = bottle < 0 ? 0 : bottle % bottleFaces.length;
   return bottleFaces[index];
-}
-
-/// A through O, in the same order as [bottleFaces]. The letter moves with the bottle.
-String bottleLetterFor(int bottle) {
-  final index = bottle < 0 ? 0 : bottle % bottleFaces.length;
-  return String.fromCharCode(65 + index);
-}
-
-String bottleOrderLabel(List<int> bottles) {
-  return [for (final bottle in bottles) bottleLetterFor(bottle)].join(', ');
 }

@@ -64,6 +64,7 @@ void main() {
     expect(match.wins, isEmpty);
     expect(match.currentPlayerIndex, 1);
     expect(match.board!.pending, committed);
+    expect(match.board!.opening, committed);
     expect(
       expireTurn(match, at: at.add(const Duration(seconds: 10))),
       isA<SessionRejected>(),
@@ -181,6 +182,22 @@ void main() {
     expect(abandoned.roundOrder.toSet(), opened.roundOrder.toSet());
     expect(abandoned.board!.guesses, isEmpty);
     expect(abandoned.board!.target, isNot(opened.board!.target));
+    expect(abandoned.board!.opening, abandoned.board!.committed);
+    expect(
+      [
+        for (final bottle in abandoned.board!.opening)
+          roundBottleLetter(abandoned.board!.labelOrder, bottle),
+      ],
+      ['A', 'B', 'C', 'D', 'E'],
+    );
+    final playing = _accept(beginRound(abandoned, at: at));
+    final ready = _accept(markPlayerReady(playing, at: at));
+    final swapped = _accept(moveBottle(ready, from: 0, to: 1, at: at));
+    expect(swapped.board!.opening, abandoned.board!.opening);
+    expect(
+      roundBottleLetter(swapped.board!.labelOrder, swapped.board!.pending[0]),
+      'B',
+    );
   });
 
   test('pause freezes the timer and resume continues the same turn', () {

@@ -42,8 +42,22 @@ BottleBoard dealBoard({
     target: target,
     committed: List<int>.of(starting),
     pending: List<int>.of(starting),
+    opening: List<int>.of(starting),
     practice: practice,
   );
+}
+
+/// A, B, C from [opening]. The letter stays with that bottle for the round.
+String roundBottleLetter(List<int> opening, int bottle) {
+  final index = opening.indexOf(bottle);
+  final slot = index < 0 ? (bottle < 0 ? 0 : bottle) : index;
+  return String.fromCharCode(65 + (slot % 26));
+}
+
+String roundOrderLabel(List<int> opening, List<int> bottles) {
+  return [
+    for (final bottle in bottles) roundBottleLetter(opening, bottle),
+  ].join(', ');
 }
 
 GuessCheck judgeArrangement({

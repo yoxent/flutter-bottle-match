@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../design_system/tokens/colors.dart';
 import '../../../design_system/tokens/spacing.dart';
-import '../../../domain/models/bottle_board.dart';
+import '../../../domain/rules/bottle_round.dart';
 import 'bottle_faces.dart';
 import 'milk_bottle.dart';
 
@@ -11,12 +11,14 @@ import 'milk_bottle.dart';
 class BottleRack extends StatefulWidget {
   const BottleRack({
     required this.arrangement,
+    required this.opening,
     required this.onSwap,
     this.hint,
     super.key,
   });
 
   final List<int> arrangement;
+  final List<int> opening;
   final void Function(int from, int to) onSwap;
   final BottleHint? hint;
 
@@ -45,7 +47,7 @@ class _BottleRackState extends State<BottleRack> {
         if (hint != null) ...[
           Text(
             'Position ${hint.position + 1} is '
-            '${bottleLetterFor(hint.bottle)}.',
+            '${_letter(hint.bottle)}.',
             style: Theme.of(context).textTheme.bodyLarge,
           ),
           const SizedBox(height: AppSpacing.sm),
@@ -59,7 +61,7 @@ class _BottleRackState extends State<BottleRack> {
         if (selected != null) ...[
           const SizedBox(height: AppSpacing.xs),
           Text(
-            'Move ${bottleLetterFor(widget.arrangement[selected])} to',
+            'Move ${_letter(widget.arrangement[selected])} to',
             style: Theme.of(context).textTheme.bodyLarge,
           ),
           const SizedBox(height: AppSpacing.xs),
@@ -96,7 +98,7 @@ class _BottleRackState extends State<BottleRack> {
   Widget _tile(int index) {
     final bottle = widget.arrangement[index];
     final face = bottleFaceFor(bottle);
-    final letter = bottleLetterFor(bottle);
+    final letter = _letter(bottle);
     final selected = _selected == index;
     final label =
         'Position ${index + 1}, $letter'
@@ -136,6 +138,8 @@ class _BottleRackState extends State<BottleRack> {
       ),
     );
   }
+
+  String _letter(int bottle) => roundBottleLetter(widget.opening, bottle);
 
   void _tap(int index) {
     final selected = _selected;
