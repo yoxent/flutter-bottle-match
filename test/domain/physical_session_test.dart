@@ -4,6 +4,7 @@ import 'package:flutter_bottle_match/domain/models/configuration.dart';
 import 'package:flutter_bottle_match/domain/models/match_phase.dart';
 import 'package:flutter_bottle_match/domain/models/match_snapshot.dart';
 import 'package:flutter_bottle_match/domain/models/round_win.dart';
+import 'package:flutter_bottle_match/domain/rules/bottle_round.dart';
 import 'package:flutter_bottle_match/domain/rules/physical_session.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -11,29 +12,28 @@ import '../support/match_fixtures.dart';
 
 void main() {
   test(
-    'a valid setup opens a full shuffled round and can record one point',
+    'a valid setup deals a hidden order and the solver scores one point',
     () {
       final at = sampleUpdatedAt;
       var match = _accept(openFirstRound(_setup(), random: Random(1), at: at));
 
+      expect(match.schemaVersion, MatchSnapshot.boardSchemaVersion);
       expect(match.phase, MatchPhase.roundIntroduction);
       expect(match.roundNumber, 1);
       expect(match.turnCycle, 1);
       expect(match.roundOrder.toSet(), {'maya', 'leo'});
       expect(match.wins, isEmpty);
+      expect(match.board!.committed, isNot(match.board!.target));
 
       match = _accept(beginRound(match, at: at));
       match = _accept(markPlayerReady(match, at: at));
-      final winner = match.roundOrder[match.currentPlayerIndex!];
-      match = _accept(requestWinner(match, at: at));
-      match = _accept(confirmWinner(match, winnerId: winner, at: at));
+      expect(requestWinner(match, at: at), isA<SessionRejected>());
 
+      final winner = match.roundOrder[match.currentPlayerIndex!];
+      match = _solveActive(match, at);
       expect(match.phase, MatchPhase.championship);
       expect(match.scores[winner], 1);
-      expect(
-        confirmWinner(match, winnerId: winner, at: at),
-        isA<SessionRejected>(),
-      );
+      expect(submitArrangement(match, at: at), isA<SessionRejected>());
       expect(match.wins.where((win) => !win.reversed), hasLength(1));
     },
   );
@@ -55,14 +55,19 @@ void main() {
       match.timer.remainingAt(at.add(const Duration(seconds: 10))),
       const Duration(seconds: 20),
     );
+    final committed = match.board!.committed;
+    match = _accept(moveBottle(match, from: 0, to: 1, at: at));
 
-    match = _accept(
-      advancePlayer(match, at: at.add(const Duration(seconds: 10))),
-    );
+    match = _accept(skipTurn(match, at: at.add(const Duration(seconds: 10))));
     expect(match.phase, MatchPhase.playerHandoff);
     expect(match.timer.isRunning, isFalse);
     expect(match.wins, isEmpty);
     expect(match.currentPlayerIndex, 1);
+    expect(match.board!.pending, committed);
+    expect(
+      expireTurn(match, at: at.add(const Duration(seconds: 10))),
+      isA<SessionRejected>(),
+    );
   });
 
   test('skip and a wrapped turn advance the cycle without a point', () {
@@ -98,12 +103,12 @@ void main() {
         ),
       );
 
-      match = _playWinner(match, 'leo', at);
+      match = _solveAs(match, 'leo', at);
       expect(match.phase, MatchPhase.roundResult);
       expect(match.scores['leo'], 1);
 
       match = _accept(startNextRound(match, random: Random(2), at: at));
-      match = _playWinner(match, 'maya', at);
+      match = _solveAs(match, 'maya', at);
       expect(match.phase, MatchPhase.championship);
       expect(match.scores['maya'], 1);
     },
@@ -111,19 +116,33 @@ void main() {
 
   test('correction removes the point and reopens confirmation', () {
     final at = sampleUpdatedAt;
+    final match = sampleMatch(phase: MatchPhase.championship).copyWith(
+      settings: const MatchSettings(
+        targetRoundWins: 1,
+        physicalEquipmentConfirmed: true,
+      ),
+      wins: const [RoundWin(roundNumber: 1, winnerId: 'maya')],
+      roundNumber: 1,
+    );
+
+    final corrected = _accept(correctLastResult(match, at: at));
+    expect(corrected.phase, MatchPhase.physicalResultConfirmation);
+    expect(corrected.scores['maya'], 0);
+
+    final confirmed = _accept(
+      confirmWinner(corrected, winnerId: 'leo', at: at),
+    );
+    expect(confirmed.phase, MatchPhase.championship);
+    expect(confirmed.scores['leo'], 1);
+  });
+
+  test('a judged round cannot be reassigned', () {
+    final at = sampleUpdatedAt;
     var match = _accept(openFirstRound(_setup(), random: Random(1), at: at));
-    final winner = match.roundOrder.first;
-    match = _playWinner(match, winner, at);
-    expect(match.phase, MatchPhase.championship);
+    match = _solveAs(match, match.roundOrder.first, at);
 
-    match = _accept(correctLastResult(match, at: at));
-    expect(match.phase, MatchPhase.physicalResultConfirmation);
-    expect(match.scores[winner], 0);
-
-    final other = match.roster.firstWhere((player) => player.id != winner).id;
-    match = _accept(confirmWinner(match, winnerId: other, at: at));
-    expect(match.phase, MatchPhase.championship);
-    expect(match.scores[other], 1);
+    expect(correctLastResult(match, at: at), isA<SessionRejected>());
+    expect(match.scores[match.roundOrder.first], 1);
   });
 
   test('a correction that leaves two players at the target names nobody', () {
@@ -160,6 +179,8 @@ void main() {
     expect(abandoned.roundNumber, 2);
     expect(abandoned.wins, isEmpty);
     expect(abandoned.roundOrder.toSet(), opened.roundOrder.toSet());
+    expect(abandoned.board!.guesses, isEmpty);
+    expect(abandoned.board!.target, isNot(opened.board!.target));
   });
 
   test('pause freezes the timer and resume continues the same turn', () {
@@ -174,6 +195,7 @@ void main() {
     match = _accept(beginRound(match, at: at));
     match = _accept(markPlayerReady(match, at: at));
     final order = match.roundOrder;
+    final target = match.board!.target;
 
     match = _accept(
       pauseSession(match, at: at.add(const Duration(seconds: 5))),
@@ -182,6 +204,7 @@ void main() {
     expect(match.resumePhase, MatchPhase.activeTurn);
     expect(match.timer.remaining, const Duration(seconds: 25));
     expect(match.roundOrder, order);
+    expect(match.board!.target, target);
 
     match = _accept(
       resumeSession(match, at: at.add(const Duration(seconds: 5))),
@@ -207,16 +230,134 @@ void main() {
         isA<SessionRejected>(),
       );
 
-      final won = _playWinner(opened, opened.roundOrder.first, at);
+      final won = _solveAs(opened, opened.roundOrder.first, at);
       final again = _accept(
         playAgain(won, matchId: 'next', random: Random(3), at: at),
       );
       expect(again.matchId, 'next');
       expect(again.phase, MatchPhase.roundIntroduction);
       expect(again.wins, isEmpty);
+      expect(again.board!.guesses, isEmpty);
       expect(again.roster.map((player) => player.id), ['maya', 'leo']);
     },
   );
+
+  test('a repeated order is blocked and does not use the turn', () {
+    final at = sampleUpdatedAt;
+    var match = _accept(openFirstRound(_setup(), random: Random(1), at: at));
+    match = _accept(beginRound(match, at: at));
+    match = _accept(markPlayerReady(match, at: at));
+    match = _accept(submitArrangement(match, at: at));
+
+    expect(match.phase, MatchPhase.playerHandoff);
+    expect(match.board!.guesses, hasLength(1));
+    expect(match.wins, isEmpty);
+
+    match = _accept(markPlayerReady(match, at: at));
+    expect(submitArrangement(match, at: at), isA<SessionRejected>());
+    expect(match.phase, MatchPhase.activeTurn);
+    expect(match.board!.guesses, hasLength(1));
+  });
+
+  test('the timer discards an unsubmitted arrangement', () {
+    final at = sampleUpdatedAt;
+    var match = _accept(
+      openFirstRound(
+        _setup(timer: TurnTimerDuration.seconds30),
+        random: Random(1),
+        at: at,
+      ),
+    );
+    match = _accept(beginRound(match, at: at));
+    match = _accept(markPlayerReady(match, at: at));
+    final committed = match.board!.committed;
+    match = _accept(moveBottle(match, from: 0, to: 1, at: at));
+
+    expect(
+      expireTurn(match, at: at.add(const Duration(seconds: 10))),
+      isA<SessionRejected>(),
+    );
+    match = _accept(expireTurn(match, at: at.add(const Duration(seconds: 30))));
+    expect(match.phase, MatchPhase.playerHandoff);
+    expect(match.board!.pending, committed);
+    expect(match.board!.guesses, isEmpty);
+    expect(match.wins, isEmpty);
+  });
+
+  test('one hint is available after three full turns and does not score', () {
+    final at = sampleUpdatedAt;
+    var match = _accept(openFirstRound(_setup(), random: Random(1), at: at));
+    match = _accept(beginRound(match, at: at));
+    expect(takeHint(match, random: Random(1), at: at), isA<SessionRejected>());
+
+    match = _accept(pauseSession(match, at: at));
+    expect(takeHint(match, random: Random(1), at: at), isA<SessionRejected>());
+    match = _accept(resumeSession(match, at: at));
+    while (match.turnCycle < bottleHintCycle) {
+      match = _accept(skipTurn(match, at: at));
+    }
+    final pending = match.board!.pending;
+    match = _accept(pauseSession(match, at: at));
+    match = _accept(takeHint(match, random: Random(4), at: at));
+    final hint = match.board!.hint!;
+    expect(hint.bottle, match.board!.target[hint.position]);
+    expect(match.board!.pending, pending);
+    expect(match.scores.values.every((score) => score == 0), isTrue);
+    expect(takeHint(match, random: Random(4), at: at), isA<SessionRejected>());
+  });
+
+  test('practice uses a throwaway order and the real round replaces it', () {
+    final at = sampleUpdatedAt;
+    var match = _accept(openPractice(_setup(), random: Random(1), at: at));
+    expect(match.board!.practice, isTrue);
+
+    match = _solveAs(match, match.roundOrder.first, at);
+    expect(match.phase, MatchPhase.roundResult);
+    expect(match.wins, isEmpty);
+    expect(match.board!.practice, isTrue);
+
+    match = _accept(finishPractice(match, random: Random(2), at: at));
+    expect(match.phase, MatchPhase.roundIntroduction);
+    expect(match.roundNumber, 1);
+    expect(match.board!.practice, isFalse);
+    expect(match.board!.guesses, isEmpty);
+    expect(match.wins, isEmpty);
+  });
+
+  test('linear keeps the roster through the next round', () {
+    final at = sampleUpdatedAt;
+    var match = _accept(
+      openFirstRound(
+        _setup(
+          settings: const MatchSettings(
+            targetRoundWins: 2,
+            physicalEquipmentConfirmed: true,
+            turnOrder: TurnOrder.linear,
+          ),
+        ),
+        random: Random(1),
+        at: at,
+      ),
+    );
+
+    expect(match.roundOrder, ['maya', 'leo']);
+    match = _solveAs(match, 'maya', at);
+    match = _accept(startNextRound(match, random: Random(9), at: at));
+    expect(match.roundNumber, 2);
+    expect(match.roundOrder, ['maya', 'leo']);
+  });
+
+  test('a saved manual match can still record a winner', () {
+    final at = sampleUpdatedAt;
+    var match = sampleMatch();
+    final winner = match.roundOrder[match.currentPlayerIndex!];
+    match = _accept(requestWinner(match, at: at));
+    match = _accept(confirmWinner(match, winnerId: winner, at: at));
+
+    expect(match.board, isNull);
+    expect(match.phase, MatchPhase.roundResult);
+    expect(match.scores[winner], 1);
+  });
 }
 
 MatchSnapshot _setup({
@@ -238,11 +379,34 @@ MatchSnapshot _setup({
   );
 }
 
-MatchSnapshot _playWinner(MatchSnapshot match, String winnerId, DateTime at) {
-  var next = _accept(beginRound(match, at: at));
-  next = _accept(markPlayerReady(next, at: at));
-  next = _accept(requestWinner(next, at: at));
-  return _accept(confirmWinner(next, winnerId: winnerId, at: at));
+MatchSnapshot _solveAs(MatchSnapshot match, String winnerId, DateTime at) {
+  var next = match;
+  if (next.phase == MatchPhase.roundIntroduction) {
+    next = _accept(beginRound(next, at: at));
+  }
+  var guard = 0;
+  while (next.roundOrder[next.currentPlayerIndex!] != winnerId && guard < 12) {
+    next = _accept(skipTurn(next, at: at));
+    guard++;
+  }
+  expect(next.roundOrder[next.currentPlayerIndex!], winnerId);
+  if (next.phase == MatchPhase.playerHandoff) {
+    next = _accept(markPlayerReady(next, at: at));
+  }
+  return _solveActive(next, at);
+}
+
+MatchSnapshot _solveActive(MatchSnapshot match, DateTime at) {
+  var next = match;
+  final target = next.board!.target;
+  for (var index = 0; index < target.length; index++) {
+    final from = next.board!.pending.indexOf(target[index]);
+    if (from == index) {
+      continue;
+    }
+    next = _accept(moveBottle(next, from: from, to: index, at: at));
+  }
+  return _accept(submitArrangement(next, at: at));
 }
 
 MatchSnapshot _accept(SessionResult result) {

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -47,6 +48,7 @@ class _PhysicalCompanionScreenState
   var _target = MatchConstraints.defaultTarget;
   var _bottles = MatchConstraints.defaultBottles;
   var _timer = TurnTimerDuration.off;
+  var _turnOrder = TurnOrder.random;
   String? _selectedId;
   String? _error;
   var _starting = false;
@@ -67,6 +69,7 @@ class _PhysicalCompanionScreenState
     _target = initial.settings.targetRoundWins;
     _bottles = initial.settings.bottleCount;
     _timer = initial.settings.timer;
+    _turnOrder = initial.settings.turnOrder;
     _selectedId = initial.settings.selectedPlayerId ?? initial.roster.first.id;
   }
 
@@ -132,6 +135,13 @@ class _PhysicalCompanionScreenState
         onMore: _names.length >= MatchConstraints.maxPlayers
             ? null
             : () => _setCount(_names.length + 1),
+      ),
+      const SizedBox(height: AppSpacing.sm),
+      GameButton(
+        key: const Key('shuffle-players'),
+        label: 'Shuffle players',
+        backgroundColor: AppColors.cyan,
+        onPressed: _names.length < 2 ? null : _shufflePlayers,
       ),
       const SizedBox(height: AppSpacing.md),
       for (var index = 0; index < _names.length; index++) ...[
@@ -235,6 +245,17 @@ class _PhysicalCompanionScreenState
         style: Theme.of(context).textTheme.bodyLarge,
       ),
       const SizedBox(height: AppSpacing.md),
+      Text('Player order', style: Theme.of(context).textTheme.titleMedium),
+      const SizedBox(height: AppSpacing.xs),
+      for (final choice in TurnOrder.values)
+        _Choice(
+          key: Key('turn-order-${choice.name}'),
+          label: turnOrderName(choice),
+          detail: turnOrderSummary(choice),
+          selected: _turnOrder == choice,
+          onPressed: () => setState(() => _turnOrder = choice),
+        ),
+      const SizedBox(height: AppSpacing.md),
       Text('Turn timer', style: Theme.of(context).textTheme.titleMedium),
       const SizedBox(height: AppSpacing.xs),
       for (final choice in TurnTimerDuration.values)
@@ -278,11 +299,11 @@ class _PhysicalCompanionScreenState
             '${settings.bottleCount} · ${bottleDifficultyLabel(settings.bottleCount)}',
       ),
       _SummaryLine(label: 'Timer', value: timerSummary(settings.timer)),
-      const _SummaryLine(label: 'Order', value: 'New order every round'),
+      _SummaryLine(label: 'Order', value: turnOrderName(settings.turnOrder)),
       Text(
-        'The bottles are digital. The board is not on screen yet, so someone '
-        'at the table still records each round winner. The app tracks the '
-        'order, the timer, and the score.',
+        'Everyone shares one hidden bottle order. Drag a bottle onto another, '
+        'or tap two bottles, to swap them. Check arrangement shows how many '
+        'are in the right position.',
         style: Theme.of(context).textTheme.bodyLarge,
       ),
       if (!check.isValid) ...[
@@ -291,22 +312,36 @@ class _PhysicalCompanionScreenState
       ],
       const SizedBox(height: AppSpacing.lg),
       GameButton(
+        key: const Key('practice-turn'),
+        label: 'Practice turn',
+        backgroundColor: AppColors.cyan,
+        foregroundColor: AppColors.ink,
+        onPressed: !check.isValid || _starting
+            ? null
+            : () => _start(practice: true),
+      ),
+      const SizedBox(height: AppSpacing.sm),
+      GameButton(
         key: const Key('start-match'),
         label: _starting ? 'Starting' : 'Play game',
         backgroundColor: AppColors.hotPink,
-        onPressed: !check.isValid || _starting ? null : _start,
+        onPressed: !check.isValid || _starting ? null : () => _start(),
       ),
     ];
   }
 
-  Future<void> _start() async {
+  Future<void> _start({bool practice = false}) async {
     setState(() {
       _starting = true;
       _error = null;
     });
     final outcome = await ref
         .read(matchSessionProvider.notifier)
-        .startMatch(roster: _roster(), settings: _settings());
+        .startMatch(
+          roster: _roster(),
+          settings: _settings(),
+          practice: practice,
+        );
     if (!mounted) {
       return;
     }
@@ -436,6 +471,27 @@ class _PhysicalCompanionScreenState
     }
   }
 
+  void _shufflePlayers() {
+    final order = [for (var index = 0; index < _names.length; index++) index];
+    final random = Random();
+    for (var index = order.length - 1; index > 0; index--) {
+      final swapIndex = random.nextInt(index + 1);
+      final current = order[index];
+      order[index] = order[swapIndex];
+      order[swapIndex] = current;
+    }
+    setState(() {
+      final names = [for (final index in order) _names[index]];
+      final avatars = [for (final index in order) _avatars[index]];
+      _names
+        ..clear()
+        ..addAll(names);
+      _avatars
+        ..clear()
+        ..addAll(avatars);
+    });
+  }
+
   List<Player> _roster() {
     return [
       for (var index = 0; index < _names.length; index++)
@@ -456,6 +512,7 @@ class _PhysicalCompanionScreenState
           : null,
       bottleCount: _bottles,
       timer: _timer,
+      turnOrder: _turnOrder,
       physicalEquipmentConfirmed: true,
     );
   }
@@ -605,21 +662,27 @@ class _Choice extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onPressed,
+    this.detail,
+    super.key,
   });
 
   final String label;
+  final String? detail;
   final bool selected;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
     final foreground = selected ? AppColors.ink : AppColors.cream;
+    final detailColor = selected ? AppColors.ink : AppColors.creamMuted;
+    final detail = this.detail;
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.xs),
       child: Semantics(
         button: true,
         selected: selected,
-        label: label,
+        label: detail == null ? label : '$label. $detail',
         excludeSemantics: true,
         child: Material(
           color: selected ? AppColors.yellow : AppColors.card,
@@ -636,12 +699,24 @@ class _Choice extends StatelessWidget {
                 ),
                 child: Align(
                   alignment: Alignment.centerLeft,
-                  child: Text(
-                    label,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: foreground,
-                      fontWeight: FontWeight.w800,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        style: text.titleMedium?.copyWith(
+                          color: foreground,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      if (detail != null) ...[
+                        const SizedBox(height: AppSpacing.xxs),
+                        Text(
+                          detail,
+                          style: text.bodyLarge?.copyWith(color: detailColor),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               ),

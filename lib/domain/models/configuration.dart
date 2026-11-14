@@ -31,6 +31,24 @@ enum TurnTimerDuration {
   };
 }
 
+/// How the roster is ordered at the start of each round.
+///
+/// The same order repeats for every turn cycle inside that round.
+/// [random] is the default. A saved match that omits this field stays random.
+enum TurnOrder {
+  /// Roster order, every round.
+  linear,
+
+  /// Roster order on odd rounds, reversed on even rounds.
+  snake,
+
+  /// Roster order, with the starting player moving forward one seat each round.
+  rotating,
+
+  /// A fresh shuffle every round. The same order may come up again.
+  random,
+}
+
 /// Locked match rules. Names and avatars can change later; these cannot.
 class MatchSettings {
   const MatchSettings({
@@ -39,6 +57,7 @@ class MatchSettings {
     this.selectedPlayerId,
     this.bottleCount = MatchConstraints.defaultBottles,
     this.timer = TurnTimerDuration.off,
+    this.turnOrder = TurnOrder.random,
     this.physicalEquipmentConfirmed = false,
   });
 
@@ -47,6 +66,7 @@ class MatchSettings {
   final String? selectedPlayerId;
   final int bottleCount;
   final TurnTimerDuration timer;
+  final TurnOrder turnOrder;
 
   /// Kept on the version 1 snapshot. Play starts the match, so this value
   /// does not decide whether setup is valid.
@@ -58,6 +78,7 @@ class MatchSettings {
     'selectedPlayerId': selectedPlayerId,
     'bottleCount': bottleCount,
     'timer': timer.name,
+    'turnOrder': turnOrder.name,
     'physicalEquipmentConfirmed': physicalEquipmentConfirmed,
   };
 
@@ -73,7 +94,16 @@ class MatchSettings {
         object.string('timer'),
         'timer',
       ),
+      turnOrder: _readTurnOrder(object),
       physicalEquipmentConfirmed: object.boolean('physicalEquipmentConfirmed'),
     );
   }
+}
+
+TurnOrder _readTurnOrder(JsonObject object) {
+  final name = object.optionalString('turnOrder');
+  if (name == null) {
+    return TurnOrder.random;
+  }
+  return enumByName(TurnOrder.values, name, 'turnOrder');
 }

@@ -55,6 +55,7 @@ class MatchSessionController extends AsyncNotifier<MatchSnapshot?> {
     required List<Player> roster,
     required MatchSettings settings,
     bool replaceConfirmed = false,
+    bool practice = false,
   }) async {
     await future;
     final at = ref.read(matchClockProvider)();
@@ -63,17 +64,16 @@ class MatchSessionController extends AsyncNotifier<MatchSnapshot?> {
     if (replaceConfirmed && _pendingStart != null) {
       opening = _pendingStart!;
     } else {
-      final opened = session.openFirstRound(
-        MatchSnapshot(
-          matchId: 'match-${at.microsecondsSinceEpoch}',
-          mode: GameMode.fullyDigital,
-          settings: settings,
-          roster: roster,
-          updatedAt: at,
-        ),
-        random: random,
-        at: at,
+      final draft = MatchSnapshot(
+        matchId: 'match-${at.microsecondsSinceEpoch}',
+        mode: GameMode.fullyDigital,
+        settings: settings,
+        roster: roster,
+        updatedAt: at,
       );
+      final opened = practice
+          ? session.openPractice(draft, random: random, at: at)
+          : session.openFirstRound(draft, random: random, at: at);
       if (opened is session.SessionRejected) {
         return StartMatchRejected(opened.reason);
       }
@@ -188,6 +188,40 @@ class MatchSessionController extends AsyncNotifier<MatchSnapshot?> {
         at: at,
       );
     });
+  }
+
+  Future<String?> moveBottle({required int from, required int to}) {
+    return _commit(
+      (current, at) => session.moveBottle(current, from: from, to: to, at: at),
+    );
+  }
+
+  Future<String?> submitArrangement() {
+    return _commit((current, at) => session.submitArrangement(current, at: at));
+  }
+
+  Future<String?> takeHint() {
+    return _commit(
+      (current, at) => session.takeHint(
+        current,
+        random: ref.read(matchRandomProvider),
+        at: at,
+      ),
+    );
+  }
+
+  Future<String?> expireTurn() {
+    return _commit((current, at) => session.expireTurn(current, at: at));
+  }
+
+  Future<String?> finishPractice() {
+    return _commit(
+      (current, at) => session.finishPractice(
+        current,
+        random: ref.read(matchRandomProvider),
+        at: at,
+      ),
+    );
   }
 
   /// Freezes a pausable match when the app or the screen is left.

@@ -44,4 +44,4 @@ flutter test
 
 The foundation includes the design tokens, app shell, navigation, domain rules for match setup, turn order, scoring, goals, and phase changes, plus local recovery of one saved match.
 
-Setup, turns, recorded round winners, pause, and the championship are playable on Android, iOS, and the web. Each player chooses an icon, shown in that player's color from the shared piece palette. The match is fully digital. The hidden-order bottle board is a proposed mechanic and is not playable.
+Setup, turns, the hidden-order bottle board, pause, and the championship are playable on Android, iOS, and the web. Each player chooses an icon, shown in that player's color from the shared piece palette. Player order is Linear, Snake, Rotating, or Random. Setup shows the name and what it does. Review shows the name only. Every round opens with that order before Begin round. A new match deals a secret bottle order. Players swap bottles and submit one arrangement per turn. The app scores the first exact order. A version 1 save still records the round winner by hand.

@@ -220,7 +220,42 @@ void main() {
     );
   });
 
-  testWidgets('a facilitator can record a round win', (tester) async {
+  testWidgets('shuffle reorders players and the review shows the order', (
+    tester,
+  ) async {
+    final matches = MemoryMatchRepository();
+    await _pump(tester, matches);
+    await tester.tap(find.byKey(const Key('new-game')));
+    await tester.pumpAndSettle();
+
+    final fields = find.byType(TextField);
+    await tester.enterText(fields.at(0), 'Amy');
+    await tester.enterText(fields.at(1), 'Bo');
+    await tester.pump();
+
+    var first = 'Amy';
+    for (var attempt = 0; attempt < 12 && first == 'Amy'; attempt++) {
+      await _tap(tester, 'shuffle-players');
+      first = tester
+          .widget<TextField>(find.byType(TextField).at(0))
+          .controller!
+          .text;
+    }
+    final second = tester
+        .widget<TextField>(find.byType(TextField).at(1))
+        .controller!
+        .text;
+    expect({first, second}, {'Amy', 'Bo'});
+    expect(first, 'Bo');
+
+    await _tap(tester, 'continue-to-rules');
+    await _tap(tester, 'turn-order-linear');
+    await _tap(tester, 'continue-to-review');
+    expect(find.text('Linear'), findsOneWidget);
+    expect(find.text('Same order every round'), findsNothing);
+  });
+
+  testWidgets('the first exact order scores one round win', (tester) async {
     final matches = MemoryMatchRepository();
     await _pump(tester, matches);
 
@@ -234,10 +269,16 @@ void main() {
     await _tap(tester, 'start-match');
 
     expect(find.byKey(const Key('begin-round')), findsOneWidget);
+    expect(find.byKey(const Key('turn-order-preview')), findsOneWidget);
+    expect(find.text('Starts'), findsOneWidget);
+    expect(find.text('Player 1'), findsWidgets);
+    expect(find.text('Player 2'), findsWidgets);
     await _tap(tester, 'begin-round');
     await _tap(tester, 'player-ready');
-    await _tap(tester, 'record-winner');
-    await _tap(tester, 'confirm-winner');
+    await _tap(tester, 'bottle-position-0');
+    expect(find.byKey(const Key('move-to-1')), findsOneWidget);
+    await _tap(tester, 'move-to-1');
+    await _solveShownBoard(tester, matches);
 
     expect(find.text('+1 point'), findsOneWidget);
     expect(matches.active!.wins.where((win) => !win.reversed), hasLength(1));
@@ -270,6 +311,30 @@ Future<void> _startMatch(WidgetTester tester) async {
   await _tap(tester, 'continue-to-rules');
   await _tap(tester, 'continue-to-review');
   await _tap(tester, 'start-match');
+}
+
+Future<void> _solveShownBoard(
+  WidgetTester tester,
+  MemoryMatchRepository matches,
+) async {
+  final target = [...matches.active!.board!.target];
+  while (true) {
+    final pending = [...matches.active!.board!.pending];
+    var destination = -1;
+    for (var index = 0; index < target.length; index++) {
+      if (pending[index] != target[index]) {
+        destination = index;
+        break;
+      }
+    }
+    if (destination < 0) {
+      break;
+    }
+    final from = pending.indexOf(target[destination]);
+    await _tap(tester, 'bottle-position-$from');
+    await _tap(tester, 'bottle-position-$destination');
+  }
+  await _tap(tester, 'check-arrangement');
 }
 
 Future<void> _tap(WidgetTester tester, String key) async {

@@ -79,6 +79,24 @@ String timerSummary(TurnTimerDuration timer) {
   };
 }
 
+String turnOrderName(TurnOrder order) {
+  return switch (order) {
+    TurnOrder.linear => 'Linear',
+    TurnOrder.snake => 'Snake',
+    TurnOrder.rotating => 'Rotating',
+    TurnOrder.random => 'Random',
+  };
+}
+
+String turnOrderSummary(TurnOrder order) {
+  return switch (order) {
+    TurnOrder.linear => 'Same order every round',
+    TurnOrder.snake => 'Reverse every round',
+    TurnOrder.rotating => 'Next player starts each round',
+    TurnOrder.random => 'New order every round',
+  };
+}
+
 String championTitle(MatchSnapshot snapshot) {
   final goal = evaluateMatchGoal(
     rule: snapshot.settings.winRule,

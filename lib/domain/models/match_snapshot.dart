@@ -2,6 +2,7 @@ import '../errors/app_failure.dart';
 import '../rules/phase_transition.dart';
 import '../rules/scorebook.dart';
 import '../serialization/json_object.dart';
+import 'bottle_board.dart';
 import 'configuration.dart';
 import 'match_phase.dart';
 import 'player.dart';
@@ -11,8 +12,8 @@ import 'turn_clock.dart';
 /// Versioned, serializable match session.
 ///
 /// Scores are derived from [wins] so a save cannot disagree with the ledger.
-/// Digital bottle-board state is not stored here. Adding it will be a new
-/// schema version rather than a silent change to version 1.
+/// Schema 1 has no bottle board and records a winner by hand. Schema 2 stores
+/// the hidden order, the arrangements, and the guesses.
 class MatchSnapshot {
   const MatchSnapshot({
     required this.matchId,
@@ -20,7 +21,7 @@ class MatchSnapshot {
     required this.settings,
     required this.roster,
     required this.updatedAt,
-    this.schemaVersion = currentSchemaVersion,
+    this.schemaVersion = legacySchemaVersion,
     this.roundNumber = 0,
     this.roundOrder = const [],
     this.turnCycle = 0,
@@ -29,9 +30,14 @@ class MatchSnapshot {
     this.resumePhase,
     this.wins = const [],
     this.timer = const TurnClock(),
+    this.board,
   });
 
-  static const currentSchemaVersion = 1;
+  static const legacySchemaVersion = 1;
+  static const boardSchemaVersion = 2;
+
+  /// Default for a snapshot that has not opened a judged round.
+  static const currentSchemaVersion = legacySchemaVersion;
 
   final int schemaVersion;
   final String matchId;
@@ -47,6 +53,9 @@ class MatchSnapshot {
   final List<RoundWin> wins;
   final TurnClock timer;
   final DateTime updatedAt;
+  final BottleBoard? board;
+
+  bool get judgesGuesses => board != null;
 
   Scorebook get scorebook => Scorebook(wins);
 
@@ -70,9 +79,12 @@ class MatchSnapshot {
     List<RoundWin>? wins,
     TurnClock? timer,
     DateTime? updatedAt,
+    int? schemaVersion,
+    BottleBoard? board,
+    bool replaceBoard = false,
   }) {
     return MatchSnapshot(
-      schemaVersion: schemaVersion,
+      schemaVersion: schemaVersion ?? this.schemaVersion,
       matchId: matchId,
       mode: mode ?? this.mode,
       settings: settings ?? this.settings,
@@ -88,6 +100,7 @@ class MatchSnapshot {
       wins: wins ?? this.wins,
       timer: timer ?? this.timer,
       updatedAt: updatedAt ?? this.updatedAt,
+      board: replaceBoard ? board : (board ?? this.board),
     );
   }
 
@@ -125,12 +138,13 @@ class MatchSnapshot {
     'wins': wins.map((win) => win.toJson()).toList(),
     'timer': timer.toJson(),
     'updatedAt': updatedAt.toUtc().toIso8601String(),
+    if (board != null) 'board': board!.toJson(),
   };
 
   factory MatchSnapshot.fromJson(Map<String, Object?> json) {
     final object = JsonObject(json);
     final version = object.integer('schemaVersion');
-    if (version != currentSchemaVersion) {
+    if (version != legacySchemaVersion && version != boardSchemaVersion) {
       throw SchemaMismatchFailure(version);
     }
 
@@ -166,6 +180,9 @@ class MatchSnapshot {
       ],
       timer: TurnClock.fromJson(object.object('timer').asMap()),
       updatedAt: DateTime.parse(object.string('updatedAt')).toUtc(),
+      board: version == boardSchemaVersion
+          ? BottleBoard.fromJson(object.object('board').asMap())
+          : null,
     );
   }
 }

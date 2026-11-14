@@ -5,12 +5,15 @@ import '../models/match_phase.dart';
 import '../models/match_snapshot.dart';
 import '../models/player.dart';
 import '../models/turn_clock.dart';
+import 'bottle_round.dart';
 import 'goal_evaluation.dart';
 import 'match_setup_check.dart';
 import 'phase_transition.dart';
 import 'player_names.dart';
 import 'round_order.dart';
 import 'scorebook.dart';
+
+part 'bottle_session.dart';
 
 /// A match-shell change. A rejected command does not carry a snapshot.
 sealed class SessionResult {
@@ -61,11 +64,19 @@ SessionResult openFirstRound(
   }
   return SessionAccepted(
     opened.copyWith(
+      schemaVersion: MatchSnapshot.boardSchemaVersion,
       roundNumber: 1,
-      roundOrder: shufflePlayerOrder(_ids(snapshot), random),
+      roundOrder: roundPlayerOrder(
+        rosterIds: _ids(snapshot),
+        order: snapshot.settings.turnOrder,
+        roundNumber: snapshot.roundNumber + 1,
+        random: random,
+      ),
       turnCycle: 1,
       currentPlayerIndex: 0,
       timer: _idleTurnClock(snapshot.settings.timer),
+      board: dealBoard(count: snapshot.settings.bottleCount, random: random),
+      replaceBoard: true,
       updatedAt: at,
     ),
   );
@@ -87,6 +98,16 @@ SessionResult markPlayerReady(MatchSnapshot snapshot, {required DateTime at}) {
 }
 
 SessionResult advancePlayer(MatchSnapshot snapshot, {required DateTime at}) {
+  if (snapshot.judgesGuesses) {
+    return const SessionRejected('Submit the arrangement or skip the turn.');
+  }
+  return advanceAfterGuess(snapshot, at: at);
+}
+
+SessionResult advanceAfterGuess(
+  MatchSnapshot snapshot, {
+  required DateTime at,
+}) {
   final order = _requireOrder(snapshot);
   if (order != null) {
     return order;
@@ -106,6 +127,9 @@ SessionResult advancePlayer(MatchSnapshot snapshot, {required DateTime at}) {
 }
 
 SessionResult requestWinner(MatchSnapshot snapshot, {required DateTime at}) {
+  if (snapshot.judgesGuesses) {
+    return const SessionRejected('Submit the arrangement to judge this round.');
+  }
   final requested = snapshot.apply(MatchEvent.requestPhysicalResult, at: at);
   if (requested == null) {
     return const SessionRejected('Record a winner during the active turn.');
@@ -120,6 +144,9 @@ SessionResult confirmWinner(
   required String winnerId,
   required DateTime at,
 }) {
+  if (snapshot.judgesGuesses) {
+    return const SessionRejected('The board already judges this round.');
+  }
   if (!snapshot.roster.any((player) => player.id == winnerId)) {
     return const SessionRejected('Choose a player from the roster.');
   }
@@ -158,6 +185,11 @@ SessionResult correctLastResult(
   MatchSnapshot snapshot, {
   required DateTime at,
 }) {
+  if (snapshot.judgesGuesses) {
+    return const SessionRejected(
+      'A submitted arrangement cannot be reassigned.',
+    );
+  }
   if (!canCorrectPhysicalResult(snapshot.phase)) {
     return const SessionRejected(
       'The last result can be corrected before the next round.',
@@ -188,6 +220,9 @@ SessionResult startNextRound(
   required Random random,
   required DateTime at,
 }) {
+  if (snapshot.board?.practice == true) {
+    return const SessionRejected('Finish the practice turn before the match.');
+  }
   if (_goal(snapshot).status != GoalStatus.inProgress) {
     return const SessionRejected(
       'The next round is available while the match is still in progress.',
@@ -200,10 +235,17 @@ SessionResult startNextRound(
   return SessionAccepted(
     started.copyWith(
       roundNumber: snapshot.roundNumber + 1,
-      roundOrder: shufflePlayerOrder(_ids(snapshot), random),
+      roundOrder: roundPlayerOrder(
+        rosterIds: _ids(snapshot),
+        order: snapshot.settings.turnOrder,
+        roundNumber: snapshot.roundNumber + 1,
+        random: random,
+      ),
       turnCycle: 1,
       currentPlayerIndex: 0,
       timer: _idleTurnClock(snapshot.settings.timer),
+      board: _freshBoard(snapshot, random),
+      replaceBoard: true,
       updatedAt: at,
     ),
   );
@@ -222,10 +264,17 @@ SessionResult abandonRound(
       phase: MatchPhase.roundIntroduction,
       clearResumePhase: true,
       roundNumber: snapshot.roundNumber + 1,
-      roundOrder: shufflePlayerOrder(_ids(snapshot), random),
+      roundOrder: roundPlayerOrder(
+        rosterIds: _ids(snapshot),
+        order: snapshot.settings.turnOrder,
+        roundNumber: snapshot.roundNumber + 1,
+        random: random,
+      ),
       turnCycle: 1,
       currentPlayerIndex: 0,
       timer: _idleTurnClock(snapshot.settings.timer),
+      board: _freshBoard(snapshot, random),
+      replaceBoard: true,
       updatedAt: at,
     ),
   );
@@ -239,9 +288,10 @@ SessionResult skipTurn(MatchSnapshot snapshot, {required DateTime at}) {
   if (!_allows(_skippablePhases, snapshot)) {
     return const SessionRejected('Skip a turn from the current player.');
   }
-  final step = _step(snapshot);
+  final prepared = _discardPending(snapshot);
+  final step = _step(prepared);
   return SessionAccepted(
-    snapshot.copyWith(
+    prepared.copyWith(
       phase: MatchPhase.playerHandoff,
       clearResumePhase: true,
       currentPlayerIndex: step.index,
@@ -424,6 +474,28 @@ SessionResult? _requireOrder(MatchSnapshot snapshot) {
   final next = (snapshot.currentPlayerIndex! + 1) % length;
   final cycle = snapshot.turnCycle + (next == 0 ? 1 : 0);
   return (index: next, cycle: cycle);
+}
+
+BottleBoard? _freshBoard(MatchSnapshot snapshot, Random random) {
+  final current = snapshot.board;
+  if (current == null) {
+    return null;
+  }
+  return dealBoard(
+    count: snapshot.settings.bottleCount,
+    random: random,
+    practice: current.practice,
+  );
+}
+
+MatchSnapshot _discardPending(MatchSnapshot snapshot) {
+  final board = snapshot.board;
+  if (board == null) {
+    return snapshot;
+  }
+  return snapshot.copyWith(
+    board: board.copyWith(pending: List<int>.of(board.committed)),
+  );
 }
 
 bool _allows(Set<MatchPhase> phases, MatchSnapshot snapshot) {

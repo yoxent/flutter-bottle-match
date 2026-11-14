@@ -16,8 +16,11 @@ import '../../../domain/models/configuration.dart';
 import '../../../domain/models/match_phase.dart';
 import '../../../domain/models/match_snapshot.dart';
 import '../../../domain/models/player.dart';
+import '../../../domain/rules/bottle_round.dart';
 import '../../../domain/rules/goal_evaluation.dart';
 import '../../../domain/rules/phase_transition.dart';
+import '../board/bottle_faces.dart';
+import '../board/bottle_rack.dart';
 import 'match_copy.dart';
 import 'physical_companion_screen.dart';
 import 'player_faces.dart';
@@ -35,6 +38,7 @@ class _PhysicalSessionScreenState extends ConsumerState<PhysicalSessionScreen>
   Timer? _ticker;
   String? _error;
   String? _winnerId;
+  DateTime? _expiredFor;
   var _leaving = false;
   var _allowPop = false;
 
@@ -144,6 +148,28 @@ class _PhysicalSessionScreenState extends ConsumerState<PhysicalSessionScreen>
       _ticker?.cancel();
       _ticker = null;
     }
+    _scheduleExpiry(snapshot);
+  }
+
+  void _scheduleExpiry(MatchSnapshot? snapshot) {
+    if (snapshot == null || !snapshot.judgesGuesses) {
+      return;
+    }
+    if (snapshot.phase != MatchPhase.activeTurn ||
+        snapshot.settings.timer == TurnTimerDuration.off ||
+        snapshot.timer.remainingAt(DateTime.now()) > Duration.zero ||
+        _expiredFor == snapshot.updatedAt) {
+      return;
+    }
+    _expiredFor = snapshot.updatedAt;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      unawaited(
+        _run(() => ref.read(matchSessionProvider.notifier).expireTurn()),
+      );
+    });
   }
 
   Future<void> _run(Future<String?> Function() action) async {
@@ -243,10 +269,7 @@ class _SessionBody extends ConsumerWidget {
   }) {
     return switch (snapshot.phase) {
       MatchPhase.roundIntroduction => [
-        Text(
-          'Order: ${_orderNames()}',
-          style: Theme.of(context).textTheme.bodyLarge,
-        ),
+        _TurnOrderPreview(snapshot: snapshot),
         const SizedBox(height: AppSpacing.md),
         _primary(
           key: const Key('begin-round'),
@@ -269,6 +292,7 @@ class _SessionBody extends ConsumerWidget {
             style: Theme.of(context).textTheme.bodyLarge,
           ),
         ],
+        ..._latestCount(context),
         const SizedBox(height: AppSpacing.md),
         _primary(
           key: const Key('player-ready'),
@@ -286,19 +310,36 @@ class _SessionBody extends ConsumerWidget {
         ),
         ..._timerCopy(context),
         const SizedBox(height: AppSpacing.md),
-        _primary(
-          key: const Key('record-winner'),
-          label: 'Record round winner',
-          color: AppColors.hotPink,
-          onPressed: () => onRun(notifier.requestWinner),
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        _primary(
-          key: const Key('next-player'),
-          label: 'Next player',
-          color: AppColors.cyan,
-          onPressed: () => onRun(notifier.advancePlayer),
-        ),
+        if (snapshot.judgesGuesses) ...[
+          BottleRack(
+            arrangement: snapshot.board!.pending,
+            hint: snapshot.board!.hint,
+            onSwap: (from, to) =>
+                onRun(() => notifier.moveBottle(from: from, to: to)),
+          ),
+          ..._guessHistory(context),
+          const SizedBox(height: AppSpacing.md),
+          _primary(
+            key: const Key('check-arrangement'),
+            label: 'Check arrangement',
+            color: AppColors.hotPink,
+            onPressed: () => onRun(notifier.submitArrangement),
+          ),
+        ] else ...[
+          _primary(
+            key: const Key('record-winner'),
+            label: 'Record round winner',
+            color: AppColors.hotPink,
+            onPressed: () => onRun(notifier.requestWinner),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          _primary(
+            key: const Key('next-player'),
+            label: 'Next player',
+            color: AppColors.cyan,
+            onPressed: () => onRun(notifier.advancePlayer),
+          ),
+        ],
         _pause(notifier),
       ],
       MatchPhase.physicalResultConfirmation => [
@@ -330,17 +371,18 @@ class _SessionBody extends ConsumerWidget {
         _pause(notifier),
       ],
       MatchPhase.roundResult => [
-        Text('+1 point', style: Theme.of(context).textTheme.headlineSmall),
+        Text(_resultTitle(), style: Theme.of(context).textTheme.headlineSmall),
         const SizedBox(height: AppSpacing.sm),
-        Text(
-          goal.status == GoalStatus.ambiguous
-              ? 'More than one player is at the target. '
-                    'This match does not name a champion.'
-              : 'The round is recorded. Check the standings above.',
-          style: Theme.of(context).textTheme.bodyLarge,
-        ),
+        Text(_resultBody(goal), style: Theme.of(context).textTheme.bodyLarge),
         const SizedBox(height: AppSpacing.md),
-        if (goal.status == GoalStatus.inProgress)
+        if (snapshot.board?.practice == true)
+          _primary(
+            key: const Key('play-real-round'),
+            label: 'Play the real round',
+            color: AppColors.yellow,
+            onPressed: () => onRun(notifier.finishPractice),
+          )
+        else if (goal.status == GoalStatus.inProgress)
           _primary(
             key: const Key('next-round'),
             label: 'Next round',
@@ -363,8 +405,10 @@ class _SessionBody extends ConsumerWidget {
         Text('Paused', style: Theme.of(context).textTheme.headlineSmall),
         const SizedBox(height: AppSpacing.sm),
         Text(
-          'Resume returns to ${_phaseName(snapshot.resumePhase)}. '
-          'The round order stays as it is.',
+          snapshot.judgesGuesses
+              ? 'Resume returns to the same bottles and the same turn.'
+              : 'Resume returns to ${_phaseName(snapshot.resumePhase)}. '
+                    'The round order stays as it is.',
           style: Theme.of(context).textTheme.bodyLarge,
         ),
         const SizedBox(height: AppSpacing.md),
@@ -374,12 +418,22 @@ class _SessionBody extends ConsumerWidget {
           color: AppColors.yellow,
           onPressed: () => onRun(notifier.resume),
         ),
-        const SizedBox(height: AppSpacing.lg),
-        Text(
-          'The app tracks turns and scores. Someone at the table records '
-          'each round winner. The digital bottles are not on screen yet.',
-          style: Theme.of(context).textTheme.bodyLarge,
-        ),
+        if (!snapshot.judgesGuesses) ...[
+          const SizedBox(height: AppSpacing.lg),
+          Text(
+            'The app tracks turns and scores. Someone at the table records '
+            'each round winner.',
+            style: Theme.of(context).textTheme.bodyLarge,
+          ),
+        ],
+        if (snapshot.board?.hint != null) ...[
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            'Position ${snapshot.board!.hint!.position + 1} is the '
+            '${bottleFaceFor(snapshot.board!.hint!.bottle).label} bottle.',
+            style: Theme.of(context).textTheme.bodyLarge,
+          ),
+        ],
         const SizedBox(height: AppSpacing.md),
         _PauseEditor(
           roster: snapshot.roster,
@@ -393,6 +447,12 @@ class _SessionBody extends ConsumerWidget {
           _secondary(
             label: 'Skip turn',
             onPressed: () => onRun(notifier.skipTurn),
+          ),
+        if (_canHint)
+          _secondary(
+            key: const Key('show-hint'),
+            label: 'Show a hint',
+            onPressed: () => onRun(notifier.takeHint),
           ),
         if (_canAbandon)
           _secondary(
@@ -448,7 +508,9 @@ class _SessionBody extends ConsumerWidget {
       return [
         const SizedBox(height: AppSpacing.sm),
         Text(
-          'Time is up. Record the result or move to the next player.',
+          snapshot.judgesGuesses
+              ? 'Time is up. This arrangement was not submitted.'
+              : 'Time is up. Record the result or move to the next player.',
           style: Theme.of(context).textTheme.bodyLarge,
         ),
       ];
@@ -509,9 +571,17 @@ class _SessionBody extends ConsumerWidget {
   }
 
   bool get _canCorrect {
-    return snapshot.wins.isNotEmpty &&
+    return !snapshot.judgesGuesses &&
+        snapshot.wins.isNotEmpty &&
         !snapshot.wins.last.reversed &&
         canCorrectPhysicalResult(snapshot.phase);
+  }
+
+  bool get _canHint {
+    final board = snapshot.board;
+    return board != null &&
+        board.hint == null &&
+        snapshot.turnCycle >= bottleHintCycle;
   }
 
   bool get _canSkip {
@@ -535,10 +605,146 @@ class _SessionBody extends ConsumerWidget {
         phases.contains(snapshot.resumePhase);
   }
 
-  String _orderNames() {
+  List<Widget> _latestCount(BuildContext context) {
+    final guesses = snapshot.board?.guesses ?? const <BottleGuess>[];
+    if (guesses.isEmpty) {
+      return const [];
+    }
+    final latest = guesses.last;
     return [
-      for (final id in snapshot.roundOrder) visibleName(snapshot.roster, id),
-    ].join(', ');
+      const SizedBox(height: AppSpacing.sm),
+      Text(
+        '${latest.correct} of ${snapshot.board!.target.length} correct.',
+        style: Theme.of(context).textTheme.headlineSmall,
+      ),
+    ];
+  }
+
+  List<Widget> _guessHistory(BuildContext context) {
+    final guesses = snapshot.board?.guesses ?? const <BottleGuess>[];
+    if (guesses.isEmpty) {
+      return const [];
+    }
+    final total = snapshot.board!.target.length;
+    return [
+      const SizedBox(height: AppSpacing.md),
+      Text('Guesses', style: Theme.of(context).textTheme.titleMedium),
+      for (var index = 0; index < guesses.length; index++)
+        Text(
+          '${index + 1}. ${guesses[index].correct} of $total correct',
+          style: Theme.of(context).textTheme.bodyLarge,
+        ),
+    ];
+  }
+
+  String _resultTitle() {
+    if (snapshot.board?.practice == true) {
+      final guesses = snapshot.board!.guesses;
+      if (guesses.isEmpty) {
+        return 'Practice';
+      }
+      final latest = guesses.last;
+      return '${latest.correct} of ${snapshot.board!.target.length} correct';
+    }
+    return '+1 point';
+  }
+
+  String _resultBody(GoalEvaluation goal) {
+    final board = snapshot.board;
+    if (board?.practice == true) {
+      return 'Practice does not score. The real round uses a new hidden order.';
+    }
+    if (goal.status == GoalStatus.ambiguous) {
+      return 'More than one player is at the target. '
+          'This match does not name a champion.';
+    }
+    if (board != null && snapshot.wins.isNotEmpty) {
+      final winner = visibleName(snapshot.roster, snapshot.wins.last.winnerId);
+      return '$winner solved the order: ${bottleOrderLabel(board.target)}.';
+    }
+    return 'The round is recorded. Check the standings above.';
+  }
+}
+
+class _TurnOrderPreview extends StatelessWidget {
+  const _TurnOrderPreview({required this.snapshot});
+
+  final MatchSnapshot snapshot;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return Column(
+      key: const Key('turn-order-preview'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('Turn order', style: text.titleMedium),
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          'This order repeats until someone solves the round.',
+          style: text.bodyLarge,
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        for (var index = 0; index < snapshot.roundOrder.length; index++)
+          _TurnSeat(snapshot: snapshot, index: index),
+      ],
+    );
+  }
+}
+
+class _TurnSeat extends StatelessWidget {
+  const _TurnSeat({required this.snapshot, required this.index});
+
+  final MatchSnapshot snapshot;
+  final int index;
+
+  @override
+  Widget build(BuildContext context) {
+    final id = snapshot.roundOrder[index];
+    final rosterIndex = snapshot.roster.indexWhere((player) => player.id == id);
+    final player = rosterIndex < 0
+        ? snapshot.roster.first
+        : snapshot.roster[rosterIndex];
+    final name = visibleName(snapshot.roster, id);
+    final face = playerFaceFor(player.avatarIndex);
+    final starts = index == 0;
+    final place = index + 1;
+    return Semantics(
+      label: starts ? '$place, $name, starts' : '$place, $name',
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+        child: Row(
+          children: [
+            SizedBox(
+              width: AppTouch.minimum,
+              child: Text(
+                '$place',
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+            ),
+            Icon(
+              face.icon,
+              color: playerColorFor(rosterIndex < 0 ? 0 : rosterIndex),
+              size: 28,
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(name, style: Theme.of(context).textTheme.titleMedium),
+                  if (starts)
+                    Text(
+                      'Starts',
+                      style: Theme.of(context).textTheme.bodyLarge,
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -713,6 +919,13 @@ class _ChampionshipState extends State<_Championship>
             '${widget.snapshot.roundNumber} rounds played',
             style: text.bodyLarge,
           ),
+          if (widget.snapshot.board != null) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              'Solved order: ${bottleOrderLabel(widget.snapshot.board!.target)}.',
+              style: text.bodyLarge,
+            ),
+          ],
           const SizedBox(height: AppSpacing.md),
           Text(roundWinnerLines(widget.snapshot), style: text.bodyLarge),
         ],
