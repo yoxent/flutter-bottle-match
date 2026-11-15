@@ -22,6 +22,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               final extra = state.extra;
               return PhysicalCompanionScreen(
                 initial: extra is SetupDraft ? extra : null,
+                replaceMatchId: state.uri.queryParameters['replace'],
               );
             },
             routes: [

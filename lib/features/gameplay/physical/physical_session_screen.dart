@@ -27,6 +27,7 @@ import '../board/bottle_rack.dart';
 import 'match_copy.dart';
 import 'physical_companion_screen.dart';
 import 'player_faces.dart';
+import 'round_win_view.dart';
 
 class PhysicalSessionScreen extends ConsumerStatefulWidget {
   const PhysicalSessionScreen({super.key});
@@ -83,8 +84,8 @@ class _PhysicalSessionScreenState extends ConsumerState<PhysicalSessionScreen>
         unawaited(_leave());
       },
       child: GamePage(
-        title: swapping ? currentPlayerName(snapshot!) : 'Match',
-        showBack: true,
+        title: _pageTitle(snapshot),
+        showBack: snapshot?.phase != MatchPhase.championship,
         onBack: () => unawaited(_leave()),
         actions: swapping ? _swapActions(snapshot!) : const [],
         body: session.when(
@@ -101,9 +102,10 @@ class _PhysicalSessionScreenState extends ConsumerState<PhysicalSessionScreen>
               winnerId: _winnerId,
               onWinner: (id) => setState(() => _winnerId = id),
               onRun: _run,
-              onPlayAgain: () => _run(
-                () => ref.read(matchSessionProvider.notifier).playAgain(),
-              ),
+              onHome: () {
+                ref.invalidate(savedMatchProvider);
+                context.go('/');
+              },
               onChangeSettings: () {
                 ref.invalidate(savedMatchProvider);
                 context.go(
@@ -191,6 +193,15 @@ class _PhysicalSessionScreenState extends ConsumerState<PhysicalSessionScreen>
       return;
     }
     _leaving = true;
+    final phase = ref.read(matchSessionProvider).asData?.value?.phase;
+    if (phase == MatchPhase.championship) {
+      if (!mounted) {
+        return;
+      }
+      ref.invalidate(savedMatchProvider);
+      context.go('/');
+      return;
+    }
     await ref.read(matchSessionProvider.notifier).pauseForInterruption();
     ref.invalidate(savedMatchProvider);
     if (!mounted) {
@@ -239,6 +250,27 @@ bool _isSwapping(MatchSnapshot? snapshot) {
       snapshot.judgesGuesses;
 }
 
+String? _pageTitle(MatchSnapshot? snapshot) {
+  if (_isSwapping(snapshot)) {
+    return currentPlayerName(snapshot!);
+  }
+  if (_celebratesRound(snapshot)) {
+    return null;
+  }
+  return 'Match';
+}
+
+bool _celebratesRound(MatchSnapshot? snapshot) {
+  if (snapshot == null) {
+    return false;
+  }
+  if (snapshot.phase == MatchPhase.championship) {
+    return true;
+  }
+  return snapshot.phase == MatchPhase.roundResult &&
+      snapshot.board?.practice != true;
+}
+
 class _SessionBody extends ConsumerWidget {
   const _SessionBody({
     required this.snapshot,
@@ -246,7 +278,7 @@ class _SessionBody extends ConsumerWidget {
     required this.winnerId,
     required this.onWinner,
     required this.onRun,
-    required this.onPlayAgain,
+    required this.onHome,
     required this.onChangeSettings,
   });
 
@@ -255,7 +287,7 @@ class _SessionBody extends ConsumerWidget {
   final String? winnerId;
   final ValueChanged<String> onWinner;
   final Future<void> Function(Future<String?> Function() action) onRun;
-  final VoidCallback onPlayAgain;
+  final VoidCallback onHome;
   final VoidCallback onChangeSettings;
 
   @override
@@ -299,21 +331,26 @@ class _SessionBody extends ConsumerWidget {
         ],
       );
     }
+    final celebrate = _celebratesRound(snapshot);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _MatchHeader(
-          snapshot: snapshot,
-          showScores: _showsScores(snapshot.phase),
-        ),
-        const SizedBox(height: AppSpacing.md),
-        Expanded(
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: phase.body,
-            ),
+        if (!celebrate) ...[
+          _MatchHeader(
+            snapshot: snapshot,
+            showScores: _showsScores(snapshot.phase),
           ),
+          const SizedBox(height: AppSpacing.md),
+        ],
+        Expanded(
+          child: celebrate
+              ? phase.body.single
+              : SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: phase.body,
+                  ),
+                ),
         ),
         if (error != null || phase.actions.isNotEmpty)
           ActionFooter(
@@ -440,9 +477,22 @@ class _SessionBody extends ConsumerWidget {
       ),
       MatchPhase.roundResult => (
         body: [
-          Text(_resultTitle(), style: text.headlineSmall),
-          const SizedBox(height: AppSpacing.sm),
-          Text(_resultBody(goal), style: text.bodyLarge),
+          if (snapshot.board?.practice == true) ...[
+            Text(_practiceTitle(), style: text.headlineSmall),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              'Practice does not score. The real round uses a new hidden order.',
+              style: text.bodyLarge,
+            ),
+          ] else
+            RoundWinView(
+              snapshot: snapshot,
+              reducedMotion: reducedMotion,
+              note: goal.status == GoalStatus.ambiguous
+                  ? 'More than one player is at the target. '
+                        'This match does not name a champion.'
+                  : null,
+            ),
         ],
         actions: [
           if (snapshot.board?.practice == true)
@@ -467,7 +517,7 @@ class _SessionBody extends ConsumerWidget {
               onPressed: () => onRun(notifier.endEarly),
             ),
           if (_canCorrect) _correct(notifier),
-          _pause(notifier),
+          if (snapshot.board?.practice == true) _pause(notifier),
         ],
       ),
       MatchPhase.paused => (
@@ -537,21 +587,26 @@ class _SessionBody extends ConsumerWidget {
         ],
       ),
       MatchPhase.championship => (
-        body: [_Championship(snapshot: snapshot, reducedMotion: reducedMotion)],
+        body: [
+          RoundWinView(
+            snapshot: snapshot,
+            reducedMotion: reducedMotion,
+            champion: true,
+          ),
+        ],
         actions: [
           _primary(
             key: const Key('play-again'),
             label: 'Play again',
-            color: AppColors.hotPink,
-            onPressed: onPlayAgain,
-          ),
-          _primary(
-            key: const Key('change-settings'),
-            label: 'Change settings',
             color: AppColors.yellow,
             onPressed: onChangeSettings,
           ),
-          if (_canCorrect) _correct(notifier),
+          _primary(
+            key: const Key('back-to-home'),
+            label: 'Back to home',
+            color: AppColors.electricBlue,
+            onPressed: onHome,
+          ),
         ],
       ),
       MatchPhase.unfinishedMatch => (
@@ -696,32 +751,13 @@ class _SessionBody extends ConsumerWidget {
     ];
   }
 
-  String _resultTitle() {
-    if (snapshot.board?.practice == true) {
-      final guesses = snapshot.board!.guesses;
-      if (guesses.isEmpty) {
-        return 'Practice';
-      }
-      final latest = guesses.last;
-      return '${latest.correct} of ${snapshot.board!.target.length} correct';
+  String _practiceTitle() {
+    final guesses = snapshot.board?.guesses ?? const <BottleGuess>[];
+    if (guesses.isEmpty || snapshot.board == null) {
+      return 'Practice';
     }
-    return '+1 point';
-  }
-
-  String _resultBody(GoalEvaluation goal) {
-    final board = snapshot.board;
-    if (board?.practice == true) {
-      return 'Practice does not score. The real round uses a new hidden order.';
-    }
-    if (goal.status == GoalStatus.ambiguous) {
-      return 'More than one player is at the target. '
-          'This match does not name a champion.';
-    }
-    if (board != null && snapshot.wins.isNotEmpty) {
-      final winner = visibleName(snapshot.roster, snapshot.wins.last.winnerId);
-      return '$winner solved the order: ${roundOrderLabel(board.labelOrder, board.target)}.';
-    }
-    return 'The round is recorded. Check the standings above.';
+    final latest = guesses.last;
+    return '${latest.correct} of ${snapshot.board!.target.length} correct';
   }
 }
 
@@ -909,85 +945,6 @@ class _PauseEditorState extends State<_PauseEditor> {
         ),
         const SizedBox(height: AppSpacing.md),
       ],
-    );
-  }
-}
-
-class _Championship extends StatefulWidget {
-  const _Championship({required this.snapshot, required this.reducedMotion});
-
-  final MatchSnapshot snapshot;
-  final bool reducedMotion;
-
-  @override
-  State<_Championship> createState() => _ChampionshipState();
-}
-
-class _ChampionshipState extends State<_Championship>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _entrance;
-
-  @override
-  void initState() {
-    super.initState();
-    _entrance = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 400),
-    );
-    if (widget.reducedMotion) {
-      _entrance.value = 1;
-    } else {
-      _entrance.forward();
-    }
-  }
-
-  @override
-  void didUpdateWidget(covariant _Championship oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.reducedMotion && _entrance.value != 1) {
-      _entrance.value = 1;
-    }
-  }
-
-  @override
-  void dispose() {
-    _entrance.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    final selected =
-        widget.snapshot.settings.winRule == WinRule.selectedPlayerReachesTarget;
-    return FadeTransition(
-      opacity: _entrance,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(championTitle(widget.snapshot), style: text.headlineSmall),
-          const SizedBox(height: AppSpacing.sm),
-          if (selected)
-            Text(
-              'You reached ${widget.snapshot.settings.targetRoundWins} round wins.',
-              style: text.bodyLarge,
-            ),
-          Text(
-            '${widget.snapshot.settings.bottleCount} bottles · '
-            '${widget.snapshot.roundNumber} rounds played',
-            style: text.bodyLarge,
-          ),
-          if (widget.snapshot.board != null) ...[
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              'Solved order: ${roundOrderLabel(widget.snapshot.board!.labelOrder, widget.snapshot.board!.target)}.',
-              style: text.bodyLarge,
-            ),
-          ],
-          const SizedBox(height: AppSpacing.md),
-          Text(roundWinnerLines(widget.snapshot), style: text.bodyLarge),
-        ],
-      ),
     );
   }
 }

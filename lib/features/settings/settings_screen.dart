@@ -2,9 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:forui/forui.dart';
 
 import '../../application/controllers/settings_controller.dart';
+import '../../design_system/components/buttons/game_switch.dart';
 import '../../design_system/components/game_page.dart';
 import '../../design_system/components/section_card.dart';
 import '../../design_system/tokens/spacing.dart';
@@ -34,7 +34,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               padding: const EdgeInsets.all(AppSpacing.md),
               child: Column(
                 children: [
-                  FSwitch(
+                  GameSwitch(
                     value: value.soundEnabled,
                     semanticsLabel: 'Sound',
                     label: const Text('Sound'),
@@ -46,7 +46,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                   ),
                   const SizedBox(height: AppSpacing.md),
-                  FSwitch(
+                  GameSwitch(
                     value: value.hapticsEnabled,
                     semanticsLabel: 'Haptics',
                     label: const Text('Haptics'),
@@ -58,7 +58,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                   ),
                   const SizedBox(height: AppSpacing.md),
-                  FSwitch(
+                  GameSwitch(
                     value: value.reducedMotion,
                     semanticsLabel: 'Reduced motion',
                     label: const Text('Reduced motion'),

@@ -125,7 +125,17 @@ class _HomeContentState extends State<_HomeContent>
             semanticsLabel: 'New game',
             backgroundColor: AppColors.hotPink,
             icon: FLucideIcons.play,
-            onPressed: () => context.push('/match'),
+            onPressed: () {
+              final replaceId = showContinue ? snapshot.matchId : null;
+              context.push(
+                replaceId == null
+                    ? '/match'
+                    : Uri(
+                        path: '/match',
+                        queryParameters: {'replace': replaceId},
+                      ).toString(),
+              );
+            },
           ),
           const SizedBox(height: AppSpacing.lg),
           Text(

@@ -89,33 +89,86 @@ String turnOrderSummary(TurnOrder order) {
   };
 }
 
-String championTitle(MatchSnapshot snapshot) {
-  final goal = evaluateMatchGoal(
+/// The player who met the match goal, if the goal names one.
+String? championPlayerId(MatchSnapshot snapshot) {
+  return evaluateMatchGoal(
     rule: snapshot.settings.winRule,
     target: snapshot.settings.targetRoundWins,
     selectedPlayerId: snapshot.settings.selectedPlayerId,
     scores: snapshot.scores,
-  );
-  final name = visibleName(snapshot.roster, goal.playerId).toUpperCase();
-  if (goal.playerId == null) {
-    return 'The champion is unresolved';
-  }
-  return switch (snapshot.settings.winRule) {
-    WinRule.firstToTarget => '$name WINS!',
-    WinRule.selectedPlayerReachesTarget => 'GOAL ACHIEVED, $name!',
-  };
+  ).playerId;
 }
 
-String roundWinnerLines(MatchSnapshot snapshot) {
-  final wins = [
-    for (final win in snapshot.wins)
-      if (!win.reversed)
-        'Round ${win.roundNumber}: ${visibleName(snapshot.roster, win.winnerId)}',
-  ];
-  if (wins.isEmpty) {
-    return 'No round winners yet.';
+/// Latest confirmed winner, if this match has one.
+String? latestWinnerId(MatchSnapshot snapshot) {
+  for (final win in snapshot.wins.reversed) {
+    if (!win.reversed) {
+      return win.winnerId;
+    }
   }
-  return wins.join('\n');
+  return null;
+}
+
+/// Up to [limit] players for the round-win list.
+///
+/// Distinct scores stay in highest-first order. When two of those players
+/// share a score, the selected players are shown in this round's turn order
+/// instead. Turn order also decides who keeps the last place when more than
+/// [limit] players share that score.
+List<String> topScorerIds(MatchSnapshot snapshot, {int limit = 3}) {
+  final turn = snapshot.roundOrder.isEmpty
+      ? [for (final player in snapshot.roster) player.id]
+      : snapshot.roundOrder;
+  final turnRank = <String, int>{
+    for (var index = 0; index < turn.length; index++) turn[index]: index,
+  };
+  final ids = [for (final player in snapshot.roster) player.id];
+  final fallback = <String, int>{
+    for (var index = 0; index < ids.length; index++)
+      if (!turnRank.containsKey(ids[index])) ids[index]: turn.length + index,
+  };
+  int seat(String id) =>
+      turnRank[id] ?? fallback[id] ?? turn.length + ids.length;
+
+  final ranked = [...ids]
+    ..sort((a, b) {
+      final byScore = (snapshot.scores[b] ?? 0).compareTo(
+        snapshot.scores[a] ?? 0,
+      );
+      if (byScore != 0) {
+        return byScore;
+      }
+      final bySeat = seat(a).compareTo(seat(b));
+      if (bySeat != 0) {
+        return bySeat;
+      }
+      return a.compareTo(b);
+    });
+
+  final count = limit < ranked.length ? limit : ranked.length;
+  final selected = ranked.sublist(0, count);
+  if (!_sharesScore(snapshot, selected)) {
+    return selected;
+  }
+  selected.sort((a, b) {
+    final bySeat = seat(a).compareTo(seat(b));
+    if (bySeat != 0) {
+      return bySeat;
+    }
+    return a.compareTo(b);
+  });
+  return selected;
+}
+
+bool _sharesScore(MatchSnapshot snapshot, List<String> ids) {
+  final seen = <int>{};
+  for (final id in ids) {
+    final score = snapshot.scores[id] ?? 0;
+    if (!seen.add(score)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 String formatRemaining(Duration duration) {

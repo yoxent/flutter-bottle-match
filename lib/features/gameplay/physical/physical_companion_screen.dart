@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../application/controllers/match_session_controller.dart';
 import '../../../design_system/components/buttons/game_button.dart';
+import '../../../design_system/components/buttons/game_switch.dart';
 import '../../../design_system/components/fact_card.dart';
 import '../../../design_system/components/game_page.dart';
 import '../../../design_system/components/section_card.dart';
@@ -34,9 +35,12 @@ class SetupDraft {
 }
 
 class PhysicalCompanionScreen extends ConsumerStatefulWidget {
-  const PhysicalCompanionScreen({this.initial, super.key});
+  const PhysicalCompanionScreen({this.initial, this.replaceMatchId, super.key});
 
   final SetupDraft? initial;
+
+  /// Saved match New game is allowed to replace without asking again.
+  final String? replaceMatchId;
 
   @override
   ConsumerState<PhysicalCompanionScreen> createState() =>
@@ -263,33 +267,73 @@ class _PhysicalCompanionScreenState
   }
 
   List<Widget> _goalPanel(List<Player> roster, List<String> names) {
-    final text = Theme.of(context).textTheme;
     return [
-      Text('Win rule', style: text.labelLarge),
-      const SizedBox(height: AppSpacing.xs),
-      _Choice(
-        label: 'First player to the target',
-        selected: _rule == WinRule.firstToTarget,
-        onPressed: () => setState(() => _rule = WinRule.firstToTarget),
-      ),
-      _Choice(
-        label: 'Selected player reaches the target',
-        selected: _rule == WinRule.selectedPlayerReachesTarget,
-        onPressed: () => setState(() {
-          _rule = WinRule.selectedPlayerReachesTarget;
-          _selectedId ??= roster.first.id;
-        }),
+      FSelect<WinRule>.rich(
+        key: const Key('win-rule'),
+        label: const Text('Win rule'),
+        description: Text(
+          _rule == WinRule.firstToTarget
+              ? 'The first player to reach the target wins.'
+              : 'Only the selected player can end the match.',
+        ),
+        format: _winRuleLabel,
+        size: FTextFieldSizeVariant.lg,
+        control: FSelectControl.lifted(
+          value: _rule,
+          onChange: (value) {
+            if (value == null) {
+              return;
+            }
+            setState(() {
+              _rule = value;
+              if (value == WinRule.selectedPlayerReachesTarget) {
+                _selectedId ??= roster.first.id;
+              }
+            });
+          },
+        ),
+        children: [
+          const FSelectItem(
+            key: Key('win-rule-any'),
+            title: Text('First player to the target'),
+            value: WinRule.firstToTarget,
+          ),
+          const FSelectItem(
+            key: Key('win-rule-one'),
+            title: Text('Selected player reaches the target'),
+            value: WinRule.selectedPlayerReachesTarget,
+          ),
+        ],
       ),
       if (_rule == WinRule.selectedPlayerReachesTarget) ...[
-        const SizedBox(height: AppSpacing.sm),
-        Text('Only this player ends the match.', style: text.bodyLarge),
-        const SizedBox(height: AppSpacing.xs),
-        for (var index = 0; index < roster.length; index++)
-          _Choice(
-            label: names[index],
-            selected: _selectedId == roster[index].id,
-            onPressed: () => setState(() => _selectedId = roster[index].id),
+        const SizedBox(height: AppSpacing.md),
+        FSelect<String>.rich(
+          key: const Key('selected-player'),
+          label: const Text('Player'),
+          description: const Text('Only this player ends the match.'),
+          format: (id) {
+            final index = roster.indexWhere((player) => player.id == id);
+            return index < 0 ? '' : names[index];
+          },
+          size: FTextFieldSizeVariant.lg,
+          control: FSelectControl.lifted(
+            value: _selectedId,
+            onChange: (value) {
+              if (value == null) {
+                return;
+              }
+              setState(() => _selectedId = value);
+            },
           ),
+          children: [
+            for (var index = 0; index < roster.length; index++)
+              FSelectItem(
+                key: Key('selected-player-${roster[index].id}'),
+                title: Text(names[index]),
+                value: roster[index].id,
+              ),
+          ],
+        ),
       ],
       const SizedBox(height: AppSpacing.md),
       _Stepper(
@@ -327,7 +371,7 @@ class _PhysicalCompanionScreenState
       const SizedBox(height: AppSpacing.sm),
       BottleCountPicker(count: _bottles),
       const SizedBox(height: AppSpacing.md),
-      FSwitch(
+      GameSwitch(
         value: _rejectPrevious,
         semanticsLabel: 'Reject previous combinations',
         label: const Text('Reject previous combinations'),
@@ -340,32 +384,56 @@ class _PhysicalCompanionScreenState
   }
 
   List<Widget> _turnPanel() {
-    final text = Theme.of(context).textTheme;
     return [
-      Text('Player order', style: text.labelLarge),
-      const SizedBox(height: AppSpacing.xs),
-      for (final choice in TurnOrder.values)
-        _Choice(
-          key: Key('turn-order-${choice.name}'),
-          label: turnOrderName(choice),
-          detail: turnOrderSummary(choice),
-          selected: _turnOrder == choice,
-          onPressed: () => setState(() => _turnOrder = choice),
-        ),
-      const SizedBox(height: AppSpacing.md),
-      Text('Turn timer', style: text.labelLarge),
-      const SizedBox(height: AppSpacing.xs),
-      for (final choice in TurnTimerDuration.values)
-        _Choice(
-          label: switch (choice) {
-            TurnTimerDuration.off => 'Off',
-            TurnTimerDuration.seconds30 => '30 seconds',
-            TurnTimerDuration.seconds60 => '60 seconds',
-            TurnTimerDuration.seconds90 => '90 seconds',
+      FSelect<TurnOrder>.rich(
+        key: const Key('turn-order'),
+        label: const Text('Player order'),
+        description: Text(turnOrderSummary(_turnOrder)),
+        format: turnOrderName,
+        size: FTextFieldSizeVariant.lg,
+        control: FSelectControl.lifted(
+          value: _turnOrder,
+          onChange: (value) {
+            if (value == null) {
+              return;
+            }
+            setState(() => _turnOrder = value);
           },
-          selected: _timer == choice,
-          onPressed: () => setState(() => _timer = choice),
         ),
+        children: [
+          for (final choice in TurnOrder.values)
+            FSelectItem(
+              key: Key('turn-order-${choice.name}'),
+              title: Text(turnOrderName(choice)),
+              subtitle: Text(turnOrderSummary(choice)),
+              value: choice,
+            ),
+        ],
+      ),
+      const SizedBox(height: AppSpacing.md),
+      FSelect<TurnTimerDuration>.rich(
+        key: const Key('turn-timer'),
+        label: const Text('Turn timer'),
+        format: timerSummary,
+        size: FTextFieldSizeVariant.lg,
+        control: FSelectControl.lifted(
+          value: _timer,
+          onChange: (value) {
+            if (value == null) {
+              return;
+            }
+            setState(() => _timer = value);
+          },
+        ),
+        children: [
+          for (final choice in TurnTimerDuration.values)
+            FSelectItem(
+              key: Key('timer-${choice.name}'),
+              title: Text(timerSummary(choice)),
+              value: choice,
+            ),
+        ],
+      ),
     ];
   }
 
@@ -420,14 +488,17 @@ class _PhysicalCompanionScreenState
       case StartMatchReady():
         setState(() => _starting = false);
         unawaited(context.push('/match/play'));
-      case StartMatchNeedsConfirmation():
-        final replace = await _confirmReplace();
-        if (!mounted) {
-          return;
-        }
-        if (replace != true) {
-          setState(() => _starting = false);
-          return;
+      case StartMatchNeedsConfirmation(:final existing):
+        final authorized = existing.matchId == widget.replaceMatchId;
+        if (!authorized) {
+          final replace = await _confirmReplace();
+          if (!mounted) {
+            return;
+          }
+          if (replace != true) {
+            setState(() => _starting = false);
+            return;
+          }
         }
         final confirmed = await ref
             .read(matchSessionProvider.notifier)
@@ -697,73 +768,9 @@ class _PlayerIconButton extends StatelessWidget {
   }
 }
 
-class _Choice extends StatelessWidget {
-  const _Choice({
-    required this.label,
-    required this.selected,
-    required this.onPressed,
-    this.detail,
-    super.key,
-  });
-
-  final String label;
-  final String? detail;
-  final bool selected;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    final foreground = selected ? AppColors.ink : AppColors.cream;
-    final detailColor = selected ? AppColors.ink : AppColors.creamMuted;
-    final detail = this.detail;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-      child: Semantics(
-        button: true,
-        selected: selected,
-        label: detail == null ? label : '$label. $detail',
-        excludeSemantics: true,
-        child: Material(
-          color: selected ? AppColors.yellow : AppColors.card,
-          borderRadius: BorderRadius.circular(AppRadii.md),
-          child: InkWell(
-            onTap: onPressed,
-            borderRadius: BorderRadius.circular(AppRadii.md),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: AppTouch.minimum),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md,
-                  vertical: AppSpacing.sm,
-                ),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        label,
-                        style: text.titleMedium?.copyWith(
-                          color: foreground,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      if (detail != null) ...[
-                        const SizedBox(height: AppSpacing.xxs),
-                        Text(
-                          detail,
-                          style: text.bodyLarge?.copyWith(color: detailColor),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+String _winRuleLabel(WinRule rule) {
+  return switch (rule) {
+    WinRule.firstToTarget => 'First player to the target',
+    WinRule.selectedPlayerReachesTarget => 'Selected player reaches the target',
+  };
 }

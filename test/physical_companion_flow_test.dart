@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bottle_match/app.dart';
 import 'package:flutter_bottle_match/application/providers.dart';
+import 'package:flutter_bottle_match/design_system/components/buttons/game_switch.dart';
 import 'package:flutter_bottle_match/design_system/tokens/colors.dart';
 import 'package:flutter_bottle_match/domain/models/match_phase.dart';
 import 'package:flutter_bottle_match/domain/rules/match_constraints.dart';
@@ -9,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:forui/forui.dart';
 
+import 'support/match_fixtures.dart';
 import 'support/memory_repositories.dart';
 
 void main() {
@@ -234,7 +236,8 @@ void main() {
     expect(find.byKey(const Key('setup-bottle-5')), findsOneWidget);
     expect(find.text('A'), findsNothing);
     expect(find.byKey(const Key('setup-bottle-6')), findsNothing);
-    expect(tester.widget<FSwitch>(find.byType(FSwitch)).value, isFalse);
+    expect(tester.widget<GameSwitch>(find.byType(GameSwitch)).value, isFalse);
+    expect(_trackColor(tester), AppColors.danger);
 
     await _tapTooltip(tester, 'More bottles');
     expect(find.text('6 bottles · Easy'), findsOneWidget);
@@ -252,7 +255,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(reject);
     await tester.pumpAndSettle();
-    expect(tester.widget<FSwitch>(find.byType(FSwitch)).value, isTrue);
+    expect(tester.widget<GameSwitch>(find.byType(GameSwitch)).value, isTrue);
+    expect(_trackColor(tester), AppColors.yellow);
 
     await _tap(tester, 'continue-to-review');
     expect(find.text('Rejected'), findsOneWidget);
@@ -291,6 +295,7 @@ void main() {
 
     await _tap(tester, 'continue-to-rules');
     await _tap(tester, 'settings-tab-turns');
+    await _tap(tester, 'turn-order');
     await _tap(tester, 'turn-order-linear');
     await _tap(tester, 'continue-to-review');
     expect(find.text('Linear'), findsOneWidget);
@@ -322,9 +327,32 @@ void main() {
     await _tap(tester, 'move-to-1');
     await _solveShownBoard(tester, matches);
 
-    expect(find.text('+1 point'), findsOneWidget);
+    expect(find.text('Winner!'), findsNWidgets(2));
+    expect(find.text('Round 1'), findsNWidgets(2));
+    expect(find.byKey(const Key('round-win-standings')), findsOneWidget);
+    expect(find.byKey(const Key('next-round')), findsOneWidget);
+    expect(find.text('Pause'), findsNothing);
     expect(matches.active!.wins.where((win) => !win.reversed), hasLength(1));
     expect(matches.active!.phase, MatchPhase.roundResult);
+  });
+
+  testWidgets('new game replaces the saved match without asking again', (
+    tester,
+  ) async {
+    final matches = MemoryMatchRepository()
+      ..active = sampleMatch(phase: MatchPhase.paused);
+    await _pump(tester, matches);
+    expect(find.byKey(const Key('continue-saved-match')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('new-game')));
+    await tester.pumpAndSettle();
+    await _tap(tester, 'continue-to-rules');
+    await _tap(tester, 'continue-to-review');
+    await _tap(tester, 'start-match');
+
+    expect(find.text('Replace the saved match?'), findsNothing);
+    expect(find.byKey(const Key('begin-round')), findsOneWidget);
+    expect(matches.active!.matchId, isNot('match-1'));
   });
 
   testWidgets('replacing an unfinished match asks first', (tester) async {
@@ -377,6 +405,21 @@ Future<void> _solveShownBoard(
     await _tap(tester, 'bottle-position-$destination');
   }
   await _tap(tester, 'check-arrangement');
+}
+
+Color _trackColor(WidgetTester tester) {
+  final box = tester.widget<DecoratedBox>(
+    find.descendant(
+      of: find.byType(GameSwitch),
+      matching: find.byWidgetPredicate((widget) {
+        final decoration = widget is DecoratedBox ? widget.decoration : null;
+        return decoration is BoxDecoration &&
+            (decoration.color == AppColors.danger ||
+                decoration.color == AppColors.yellow);
+      }),
+    ),
+  );
+  return (box.decoration as BoxDecoration).color!;
 }
 
 Future<void> _tap(WidgetTester tester, String key) async {
