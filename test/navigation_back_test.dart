@@ -16,20 +16,15 @@ void main() {
 
     await tester.tap(find.byKey(const Key('new-game')));
     await tester.pumpAndSettle();
-    await _tap(tester, 'continue-to-rules');
     await _tap(tester, 'continue-to-review');
 
     await _back(tester);
-    expect(find.text('Match settings'), findsOneWidget);
-    expect(find.text('New game'), findsNothing);
-
-    await _back(tester);
-    expect(find.text('Players'), findsOneWidget);
+    expect(find.text('Setup'), findsOneWidget);
     expect(find.text('New game'), findsNothing);
 
     await _back(tester);
     expect(find.text('New game'), findsOneWidget);
-    expect(find.text('Players'), findsNothing);
+    expect(find.text('Setup'), findsNothing);
   });
 
   testWidgets('back from a match returns to the page that opened it', (
@@ -38,7 +33,6 @@ void main() {
     await _pump(tester);
     await tester.tap(find.byKey(const Key('new-game')));
     await tester.pumpAndSettle();
-    await _tap(tester, 'continue-to-rules');
     await _tap(tester, 'continue-to-review');
     await _tap(tester, 'start-match');
 

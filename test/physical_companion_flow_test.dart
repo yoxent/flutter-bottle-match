@@ -229,8 +229,7 @@ void main() {
     await _pump(tester, matches);
     await tester.tap(find.byKey(const Key('new-game')));
     await tester.pumpAndSettle();
-    await _tap(tester, 'continue-to-rules');
-    await _tap(tester, 'settings-tab-bottles');
+    await _tap(tester, 'setup-tab-match');
 
     expect(find.text('5 bottles · Easy'), findsOneWidget);
     expect(find.byKey(const Key('setup-bottle-5')), findsOneWidget);
@@ -293,8 +292,7 @@ void main() {
     expect({first, second}, {'Amy', 'Bo'});
     expect(first, 'Bo');
 
-    await _tap(tester, 'continue-to-rules');
-    await _tap(tester, 'settings-tab-turns');
+    await _tap(tester, 'setup-tab-match');
     await _tap(tester, 'turn-order');
     await _tap(tester, 'turn-order-linear');
     await _tap(tester, 'continue-to-review');
@@ -308,20 +306,26 @@ void main() {
 
     await tester.tap(find.byKey(const Key('new-game')));
     await tester.pumpAndSettle();
-    await _tap(tester, 'continue-to-rules');
     await _tap(tester, 'continue-to-review');
 
     expect(find.text('Play game'), findsOneWidget);
     expect(find.text('First player to 3 round wins'), findsOneWidget);
+    final play = tester.getTopLeft(find.byKey(const Key('start-match'))).dy;
+    final practice = tester
+        .getTopLeft(find.byKey(const Key('practice-turn')))
+        .dy;
+    expect(play, lessThan(practice));
     await _tap(tester, 'start-match');
 
-    expect(find.byKey(const Key('begin-round')), findsOneWidget);
+    expect(find.text('Start round'), findsOneWidget);
     expect(find.byKey(const Key('turn-order-preview')), findsOneWidget);
-    expect(find.text('Starts'), findsOneWidget);
+    expect(find.text('Round 1'), findsOneWidget);
+    expect(find.text('First to 3'), findsOneWidget);
+    expect(find.text('Random'), findsOneWidget);
+    expect(find.text('New order every round'), findsOneWidget);
     expect(find.text('Player 1'), findsWidgets);
     expect(find.text('Player 2'), findsWidgets);
     await _tap(tester, 'begin-round');
-    await _tap(tester, 'player-ready');
     await _tap(tester, 'bottle-position-0');
     expect(find.byKey(const Key('move-to-1')), findsOneWidget);
     await _tap(tester, 'move-to-1');
@@ -336,6 +340,29 @@ void main() {
     expect(matches.active!.phase, MatchPhase.roundResult);
   });
 
+  testWidgets('a timer stays covered until the current player presses play', (
+    tester,
+  ) async {
+    await _pump(tester, MemoryMatchRepository());
+    await tester.tap(find.byKey(const Key('new-game')));
+    await tester.pumpAndSettle();
+    await _tap(tester, 'setup-tab-match');
+    await _tap(tester, 'turn-timer');
+    await _tap(tester, 'timer-seconds30');
+    await _tap(tester, 'continue-to-review');
+    await _tap(tester, 'start-match');
+    await _tap(tester, 'begin-round');
+
+    expect(find.text('Play'), findsOneWidget);
+    expect(find.byType(BackdropFilter), findsOneWidget);
+    expect(find.byKey(const Key('check-arrangement')), findsNothing);
+
+    await _tap(tester, 'player-ready');
+
+    expect(find.byType(BackdropFilter), findsNothing);
+    expect(find.byKey(const Key('check-arrangement')), findsOneWidget);
+  });
+
   testWidgets('new game replaces the saved match without asking again', (
     tester,
   ) async {
@@ -346,7 +373,6 @@ void main() {
 
     await tester.tap(find.byKey(const Key('new-game')));
     await tester.pumpAndSettle();
-    await _tap(tester, 'continue-to-rules');
     await _tap(tester, 'continue-to-review');
     await _tap(tester, 'start-match');
 
@@ -378,7 +404,6 @@ void main() {
 Future<void> _startMatch(WidgetTester tester) async {
   await tester.tap(find.byKey(const Key('new-game')));
   await tester.pumpAndSettle();
-  await _tap(tester, 'continue-to-rules');
   await _tap(tester, 'continue-to-review');
   await _tap(tester, 'start-match');
 }

@@ -83,7 +83,7 @@ SessionResult openFirstRound(
 }
 
 SessionResult beginRound(MatchSnapshot snapshot, {required DateTime at}) {
-  return _phase(snapshot, MatchEvent.beginRound, at: at);
+  return _openTurn(_phase(snapshot, MatchEvent.beginRound, at: at), at: at);
 }
 
 /// Starts the optional timer. The clock stays idle until the player is ready.
@@ -123,7 +123,7 @@ SessionResult advanceAfterGuess(
   if (advanced == null) {
     return const SessionRejected('Advance the turn from the active player.');
   }
-  return SessionAccepted(advanced);
+  return _openTurn(SessionAccepted(advanced), at: at);
 }
 
 SessionResult requestWinner(MatchSnapshot snapshot, {required DateTime at}) {
@@ -290,16 +290,32 @@ SessionResult skipTurn(MatchSnapshot snapshot, {required DateTime at}) {
   }
   final prepared = _discardPending(snapshot);
   final step = _step(prepared);
-  return SessionAccepted(
-    prepared.copyWith(
-      phase: MatchPhase.playerHandoff,
-      clearResumePhase: true,
-      currentPlayerIndex: step.index,
-      turnCycle: step.cycle,
-      timer: _idleTurnClock(snapshot.settings.timer),
-      updatedAt: at,
+  return _openTurn(
+    SessionAccepted(
+      prepared.copyWith(
+        phase: MatchPhase.playerHandoff,
+        clearResumePhase: true,
+        currentPlayerIndex: step.index,
+        turnCycle: step.cycle,
+        timer: _idleTurnClock(snapshot.settings.timer),
+        updatedAt: at,
+      ),
     ),
+    at: at,
   );
+}
+
+/// A timed turn waits on the handoff until the player starts the clock.
+///
+/// Without a timer there is nothing to gate, so the turn opens immediately.
+SessionResult _openTurn(SessionResult handedOff, {required DateTime at}) {
+  if (handedOff is! SessionAccepted) {
+    return handedOff;
+  }
+  if (handedOff.snapshot.settings.timer != TurnTimerDuration.off) {
+    return handedOff;
+  }
+  return markPlayerReady(handedOff.snapshot, at: at);
 }
 
 SessionResult pauseSession(MatchSnapshot snapshot, {required DateTime at}) {

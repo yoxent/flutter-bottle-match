@@ -106,21 +106,13 @@ class _PhysicalCompanionScreenState
         });
       },
       child: GamePage(
-        title: switch (_step) {
-          0 => 'Players',
-          1 => 'Match settings',
-          _ => 'Review',
-        },
+        title: _step == 0 ? 'Setup' : 'Review',
         showBack: true,
         footer: _footer(),
         body: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: switch (_step) {
-              0 => _playerStep(),
-              1 => _rulesStep(),
-              _ => _reviewStep(),
-            },
+            children: _step == 0 ? _setupStep() : _reviewStep(),
           ),
         ),
       ),
@@ -129,7 +121,7 @@ class _PhysicalCompanionScreenState
 
   Widget _footer() {
     final text = Theme.of(context).textTheme;
-    final check = _step == 2
+    final check = _step == 1
         ? MatchSetupCheck.evaluate(roster: _roster(), settings: _settings())
         : null;
     return Column(
@@ -143,27 +135,25 @@ class _PhysicalCompanionScreenState
         ...switch (_step) {
           0 => [
             GameButton(
-              key: const Key('continue-to-rules'),
-              label: 'Continue',
-              backgroundColor: AppColors.hotPink,
+              key: const Key('continue-to-review'),
+              label: 'Review match',
+              backgroundColor: AppColors.yellow,
               onPressed: () => setState(() {
                 _error = null;
                 _step = 1;
               }),
             ),
           ],
-          1 => [
-            GameButton(
-              key: const Key('continue-to-review'),
-              label: 'Review match',
-              backgroundColor: AppColors.yellow,
-              onPressed: () => setState(() {
-                _error = null;
-                _step = 2;
-              }),
-            ),
-          ],
           _ => [
+            GameButton(
+              key: const Key('start-match'),
+              label: _starting ? 'Starting' : 'Play game',
+              backgroundColor: AppColors.hotPink,
+              onPressed: check?.isValid != true || _starting
+                  ? null
+                  : () => _start(),
+            ),
+            const SizedBox(height: AppSpacing.sm),
             GameButton(
               key: const Key('practice-turn'),
               label: 'Practice turn',
@@ -172,15 +162,6 @@ class _PhysicalCompanionScreenState
               onPressed: check?.isValid != true || _starting
                   ? null
                   : () => _start(practice: true),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            GameButton(
-              key: const Key('start-match'),
-              label: _starting ? 'Starting' : 'Play game',
-              backgroundColor: AppColors.hotPink,
-              onPressed: check?.isValid != true || _starting
-                  ? null
-                  : () => _start(),
             ),
           ],
         },
@@ -244,24 +225,28 @@ class _PhysicalCompanionScreenState
     ];
   }
 
-  List<Widget> _rulesStep() {
+  List<Widget> _setupStep() {
     final roster = _roster();
     final names = visiblePlayerNames(roster);
     return [
       SegmentedTabs(
         tabs: const [
-          SegmentedTab(label: 'Goal', tabKey: Key('settings-tab-goal')),
-          SegmentedTab(label: 'Bottles', tabKey: Key('settings-tab-bottles')),
-          SegmentedTab(label: 'Turns', tabKey: Key('settings-tab-turns')),
+          SegmentedTab(label: 'Players', tabKey: Key('setup-tab-players')),
+          SegmentedTab(label: 'Match', tabKey: Key('setup-tab-match')),
         ],
         selectedIndex: _panel,
         onSelected: (index) => setState(() => _panel = index),
       ),
       const SizedBox(height: AppSpacing.lg),
       ...switch (_panel) {
-        0 => _goalPanel(roster, names),
-        1 => _bottlePanel(),
-        _ => _turnPanel(),
+        0 => _playerStep(),
+        _ => [
+          ..._goalPanel(roster, names),
+          const SizedBox(height: AppSpacing.lg),
+          ..._bottlePanel(),
+          const SizedBox(height: AppSpacing.lg),
+          ..._turnPanel(),
+        ],
       },
     ];
   }

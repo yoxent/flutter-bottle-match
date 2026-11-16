@@ -43,7 +43,7 @@ void main() {
       expect(first, isA<StartMatchReady>());
       final savedId = repository.active!.matchId;
       expect(await notifier.beginRound(), isNull);
-      expect(repository.active!.phase, MatchPhase.playerHandoff);
+      expect(repository.active!.phase, MatchPhase.activeTurn);
 
       final blocked = await notifier.startMatch(
         roster: roster,
@@ -51,7 +51,7 @@ void main() {
       );
       expect(blocked, isA<StartMatchNeedsConfirmation>());
       expect(repository.active!.matchId, savedId);
-      expect(repository.active!.phase, MatchPhase.playerHandoff);
+      expect(repository.active!.phase, MatchPhase.activeTurn);
 
       final replaced = await notifier.startMatch(
         roster: roster,

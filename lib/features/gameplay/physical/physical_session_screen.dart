@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -75,6 +76,7 @@ class _PhysicalSessionScreenState extends ConsumerState<PhysicalSessionScreen>
 
     final snapshot = session.asData?.value;
     final swapping = _isSwapping(snapshot);
+    final gating = _isTurnGate(snapshot);
     return PopScope(
       canPop: _allowPop,
       onPopInvokedWithResult: (didPop, _) {
@@ -87,7 +89,9 @@ class _PhysicalSessionScreenState extends ConsumerState<PhysicalSessionScreen>
         title: _pageTitle(snapshot),
         showBack: snapshot?.phase != MatchPhase.championship,
         onBack: () => unawaited(_leave()),
-        actions: swapping ? _swapActions(snapshot!) : const [],
+        actions: swapping || gating
+            ? _boardActions(snapshot!, showClock: swapping)
+            : const [],
         body: session.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (error, _) => Text('$error'),
@@ -215,10 +219,13 @@ class _PhysicalSessionScreenState extends ConsumerState<PhysicalSessionScreen>
     });
   }
 
-  List<Widget> _swapActions(MatchSnapshot snapshot) {
+  List<Widget> _boardActions(
+    MatchSnapshot snapshot, {
+    required bool showClock,
+  }) {
     final timerOn = snapshot.settings.timer != TurnTimerDuration.off;
     return [
-      if (timerOn)
+      if (showClock && timerOn)
         Text(
           formatRemaining(snapshot.timer.remainingAt(DateTime.now())),
           style: Theme.of(context).textTheme.titleMedium,
@@ -250,8 +257,15 @@ bool _isSwapping(MatchSnapshot? snapshot) {
       snapshot.judgesGuesses;
 }
 
+bool _isTurnGate(MatchSnapshot? snapshot) {
+  return snapshot != null &&
+      snapshot.phase == MatchPhase.playerHandoff &&
+      snapshot.judgesGuesses &&
+      snapshot.settings.timer != TurnTimerDuration.off;
+}
+
 String? _pageTitle(MatchSnapshot? snapshot) {
-  if (_isSwapping(snapshot)) {
+  if (_isSwapping(snapshot) || _isTurnGate(snapshot)) {
     return currentPlayerName(snapshot!);
   }
   if (_celebratesRound(snapshot)) {
@@ -309,6 +323,13 @@ class _SessionBody extends ConsumerWidget {
       reducedMotion: reducedMotion,
       goal: goal,
     );
+    if (_isTurnGate(snapshot)) {
+      return _TurnGate(
+        snapshot: snapshot,
+        error: error,
+        onPlay: () => onRun(notifier.markReady),
+      );
+    }
     if (_isSwapping(snapshot)) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -332,10 +353,11 @@ class _SessionBody extends ConsumerWidget {
       );
     }
     final celebrate = _celebratesRound(snapshot);
+    final opening = snapshot.phase == MatchPhase.roundIntroduction;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (!celebrate) ...[
+        if (!celebrate && !opening) ...[
           _MatchHeader(
             snapshot: snapshot,
             showScores: _showsScores(snapshot.phase),
@@ -383,11 +405,11 @@ class _SessionBody extends ConsumerWidget {
     final text = Theme.of(context).textTheme;
     return switch (snapshot.phase) {
       MatchPhase.roundIntroduction => (
-        body: [_TurnOrderPreview(snapshot: snapshot)],
+        body: [_RoundOpening(snapshot: snapshot)],
         actions: [
           _primary(
             key: const Key('begin-round'),
-            label: 'Begin round',
+            label: 'Start round',
             color: AppColors.hotPink,
             onPressed: () => onRun(notifier.beginRound),
           ),
@@ -761,28 +783,150 @@ class _SessionBody extends ConsumerWidget {
   }
 }
 
-class _TurnOrderPreview extends StatelessWidget {
-  const _TurnOrderPreview({required this.snapshot});
+class _RoundOpening extends StatelessWidget {
+  const _RoundOpening({required this.snapshot});
 
   final MatchSnapshot snapshot;
 
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final names = visiblePlayerNames(snapshot.roster);
     return Column(
       key: const Key('turn-order-preview'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('Turn order', style: text.labelLarge),
+        Text('Round ${snapshot.roundNumber}', style: text.headlineSmall),
         const SizedBox(height: AppSpacing.xs),
+        Text(goalLabel(snapshot), style: text.titleMedium),
+        const SizedBox(height: AppSpacing.sm),
+        Wrap(
+          spacing: AppSpacing.xs,
+          runSpacing: AppSpacing.xs,
+          children: [
+            for (var index = 0; index < snapshot.roster.length; index++)
+              _ScoreChip(
+                name: names[index],
+                score: snapshot.scores[snapshot.roster[index].id] ?? 0,
+                color: playerColorFor(index),
+              ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.lg),
         Text(
-          'This order repeats until someone solves the round.',
-          style: text.bodyLarge,
+          turnOrderName(snapshot.settings.turnOrder),
+          style: text.titleMedium,
         ),
         const SizedBox(height: AppSpacing.sm),
         for (var index = 0; index < snapshot.roundOrder.length; index++)
           _TurnSeat(snapshot: snapshot, index: index),
+        const SizedBox(height: AppSpacing.sm),
+        Text(
+          turnOrderSummary(snapshot.settings.turnOrder),
+          style: text.bodyLarge,
+        ),
       ],
+    );
+  }
+}
+
+class _TurnGate extends StatelessWidget {
+  const _TurnGate({
+    required this.snapshot,
+    required this.error,
+    required this.onPlay,
+  });
+
+  final MatchSnapshot snapshot;
+  final String? error;
+  final VoidCallback onPlay;
+
+  @override
+  Widget build(BuildContext context) {
+    final board = snapshot.board!;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        IgnorePointer(
+          child: BottleRack(
+            arrangement: board.pending,
+            opening: board.labelOrder,
+            onSwap: (_, _) {},
+          ),
+        ),
+        ClipRect(
+          child: BackdropFilter(
+            filter: ui.ImageFilter.blur(sigmaX: 28, sigmaY: 28),
+            child: ColoredBox(
+              color: AppColors.background.withValues(alpha: 0.55),
+            ),
+          ),
+        ),
+        Center(child: _PlayButton(onPressed: onPlay)),
+        if (error != null)
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.md),
+              child: Text(
+                error!,
+                style: Theme.of(context).textTheme.bodyLarge,
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _PlayButton extends StatelessWidget {
+  const _PlayButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final diameter = (constraints.biggest.shortestSide * 0.72).clamp(
+          168.0,
+          320.0,
+        );
+        return Semantics(
+          key: const Key('player-ready'),
+          button: true,
+          label: 'Play',
+          excludeSemantics: true,
+          child: SizedBox(
+            width: diameter,
+            height: diameter,
+            child: FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.yellow,
+                foregroundColor: AppColors.ink,
+                shape: const CircleBorder(),
+                textStyle: AppTypography.button,
+              ),
+              onPressed: onPressed,
+              child: FittedBox(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      FLucideIcons.play,
+                      size: diameter * 0.34,
+                      color: AppColors.ink,
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    const Text('Play'),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -802,10 +946,9 @@ class _TurnSeat extends StatelessWidget {
         : snapshot.roster[rosterIndex];
     final name = visibleName(snapshot.roster, id);
     final face = playerFaceFor(player.avatarIndex);
-    final starts = index == 0;
     final place = index + 1;
     return Semantics(
-      label: starts ? '$place, $name, starts' : '$place, $name',
+      label: '$place, $name',
       child: Padding(
         padding: const EdgeInsets.only(bottom: AppSpacing.xs),
         child: Row(
@@ -826,8 +969,6 @@ class _TurnSeat extends StatelessWidget {
             Expanded(
               child: Text(name, style: Theme.of(context).textTheme.titleMedium),
             ),
-            if (starts)
-              Text('Starts', style: Theme.of(context).textTheme.bodyLarge),
           ],
         ),
       ),

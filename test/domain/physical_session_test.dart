@@ -26,7 +26,7 @@ void main() {
       expect(match.board!.committed, isNot(match.board!.target));
 
       match = _accept(beginRound(match, at: at));
-      match = _accept(markPlayerReady(match, at: at));
+      expect(match.phase, MatchPhase.activeTurn);
       expect(requestWinner(match, at: at), isA<SessionRejected>());
 
       final winner = match.roundOrder[match.currentPlayerIndex!];
@@ -191,8 +191,7 @@ void main() {
       ['A', 'B', 'C', 'D', 'E'],
     );
     final playing = _accept(beginRound(abandoned, at: at));
-    final ready = _accept(markPlayerReady(playing, at: at));
-    final swapped = _accept(moveBottle(ready, from: 0, to: 1, at: at));
+    final swapped = _accept(moveBottle(playing, from: 0, to: 1, at: at));
     expect(swapped.board!.opening, abandoned.board!.opening);
     expect(
       roundBottleLetter(swapped.board!.labelOrder, swapped.board!.pending[0]),
@@ -263,16 +262,14 @@ void main() {
     final at = sampleUpdatedAt;
     var match = _accept(openFirstRound(_setup(), random: Random(1), at: at));
     match = _accept(beginRound(match, at: at));
-    match = _accept(markPlayerReady(match, at: at));
     match = _accept(submitArrangement(match, at: at));
 
-    expect(match.phase, MatchPhase.playerHandoff);
+    expect(match.phase, MatchPhase.activeTurn);
     expect(match.board!.guesses, hasLength(1));
     expect(match.wins, isEmpty);
 
-    match = _accept(markPlayerReady(match, at: at));
     match = _accept(submitArrangement(match, at: at));
-    expect(match.phase, MatchPhase.playerHandoff);
+    expect(match.phase, MatchPhase.activeTurn);
     expect(match.board!.guesses, hasLength(2));
 
     final rejecting = _accept(
@@ -289,9 +286,7 @@ void main() {
       ),
     );
     var blocked = _accept(beginRound(rejecting, at: at));
-    blocked = _accept(markPlayerReady(blocked, at: at));
     blocked = _accept(submitArrangement(blocked, at: at));
-    blocked = _accept(markPlayerReady(blocked, at: at));
     expect(submitArrangement(blocked, at: at), isA<SessionRejected>());
     expect(blocked.board!.guesses, hasLength(1));
   });
