@@ -11,11 +11,11 @@ import '../../../design_system/components/buttons/game_button.dart';
 import '../../../design_system/components/buttons/game_switch.dart';
 import '../../../design_system/components/fact_card.dart';
 import '../../../design_system/components/game_page.dart';
-import '../../../design_system/components/section_card.dart';
 import '../../../design_system/components/segmented_tabs.dart';
 import '../../../design_system/tokens/colors.dart';
 import '../../../design_system/tokens/radii.dart';
 import '../../../design_system/tokens/spacing.dart';
+import '../../../design_system/tokens/typography.dart';
 import '../../../domain/models/configuration.dart';
 import '../../../domain/models/player.dart';
 import '../../../domain/rules/match_constraints.dart';
@@ -196,29 +196,12 @@ class _PhysicalCompanionScreenState
       ),
       const SizedBox(height: AppSpacing.md),
       for (var index = 0; index < _names.length; index++) ...[
-        SectionCard(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              _PlayerIconButton(
-                index: index,
-                face: playerFaceFor(_avatars[index]),
-                onPressed: () => _chooseIcon(index),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: TextField(
-                  controller: _names[index],
-                  maxLength: MatchConstraints.maxNameLength,
-                  textCapitalization: TextCapitalization.words,
-                  decoration: InputDecoration(
-                    labelText: 'Player ${index + 1}',
-                    counterText: '',
-                  ),
-                ),
-              ),
-            ],
-          ),
+        _PlayerNamePanel(
+          index: index,
+          color: playerColorFor(index),
+          face: playerFaceFor(_avatars[index]),
+          controller: _names[index],
+          onIconPressed: () => _chooseIcon(index),
         ),
         const SizedBox(height: AppSpacing.sm),
       ],
@@ -718,15 +701,116 @@ class _StepButton extends StatelessWidget {
   }
 }
 
+class _PlayerNamePanel extends StatelessWidget {
+  const _PlayerNamePanel({
+    required this.index,
+    required this.color,
+    required this.face,
+    required this.controller,
+    required this.onIconPressed,
+  });
+
+  static const height = 72.0;
+
+  final int index;
+  final Color color;
+  final PlayerFace face;
+  final TextEditingController controller;
+  final VoidCallback onIconPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final onColor = _onPlayerColor(color);
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: height),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(height / 2),
+          border: Border.all(color: AppColors.cream, width: 2),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+          child: Row(
+            children: [
+              _PlayerBadge(
+                child: Text(
+                  '${index + 1}',
+                  style: AppTypography.headline.copyWith(color: AppColors.ink),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              _PlayerIconButton(
+                index: index,
+                face: face,
+                color: color,
+                onPressed: onIconPressed,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  maxLength: MatchConstraints.maxNameLength,
+                  textCapitalization: TextCapitalization.words,
+                  cursorColor: onColor,
+                  style: AppTypography.emphasis.copyWith(color: onColor),
+                  decoration: const InputDecoration(
+                    isCollapsed: true,
+                    filled: false,
+                    counterText: '',
+                    contentPadding: EdgeInsets.zero,
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    disabledBorder: InputBorder.none,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PlayerBadge extends StatelessWidget {
+  const _PlayerBadge({required this.child});
+
+  static const size = 52.0;
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        color: AppColors.cream,
+        shape: BoxShape.circle,
+        border: Border.fromBorderSide(
+          BorderSide(color: AppColors.ink, width: 2),
+        ),
+      ),
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: Center(child: child),
+      ),
+    );
+  }
+}
+
 class _PlayerIconButton extends StatelessWidget {
   const _PlayerIconButton({
     required this.index,
     required this.face,
+    required this.color,
     required this.onPressed,
   });
 
   final int index;
   final PlayerFace face;
+  final Color color;
   final VoidCallback onPressed;
 
   @override
@@ -737,20 +821,28 @@ class _PlayerIconButton extends StatelessWidget {
       excludeSemantics: true,
       child: Material(
         key: Key('player-icon-$index'),
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(AppRadii.sm),
+        color: AppColors.cream,
+        shape: const CircleBorder(
+          side: BorderSide(color: AppColors.ink, width: 2),
+        ),
         child: InkWell(
           onTap: onPressed,
-          borderRadius: BorderRadius.circular(AppRadii.sm),
+          customBorder: const CircleBorder(),
           child: SizedBox(
-            width: AppTouch.minimum,
-            height: AppTouch.minimum,
-            child: Icon(face.icon, color: playerColorFor(index)),
+            width: _PlayerBadge.size,
+            height: _PlayerBadge.size,
+            child: Icon(face.icon, color: color),
           ),
         ),
       ),
     );
   }
+}
+
+Color _onPlayerColor(Color color) {
+  return ThemeData.estimateBrightnessForColor(color) == Brightness.dark
+      ? AppColors.cream
+      : AppColors.ink;
 }
 
 String _winRuleLabel(WinRule rule) {
