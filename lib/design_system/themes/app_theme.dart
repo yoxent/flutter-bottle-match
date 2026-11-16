@@ -28,6 +28,7 @@ abstract final class AppTheme {
       brightness: Brightness.dark,
       colorScheme: scheme,
       scaffoldBackgroundColor: AppColors.background,
+      fontFamily: AppFontFamily.body,
       textTheme: AppTypography.textTheme(),
       splashFactory: InkSparkle.splashFactory,
       inputDecorationTheme: const InputDecorationTheme(
@@ -35,6 +36,7 @@ abstract final class AppTheme {
         fillColor: AppColors.background,
         labelStyle: AppTypography.label,
         floatingLabelStyle: TextStyle(
+          fontFamily: AppFontFamily.body,
           fontSize: 14,
           height: 1.3,
           fontWeight: FontWeight.w700,
@@ -85,6 +87,18 @@ abstract final class AppTheme {
       colors: colors,
       touch: true,
       debugLabel: 'Colorful Bottle Match',
+      typography: FTypography(
+        display: FTypeface.inherit(
+          colors: colors,
+          touch: true,
+          fontFamily: AppFontFamily.header,
+        ),
+        body: FTypeface.inherit(
+          colors: colors,
+          touch: true,
+          fontFamily: AppFontFamily.body,
+        ),
+      ),
     );
   }
 }

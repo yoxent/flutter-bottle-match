@@ -2,8 +2,19 @@ import 'package:flutter/material.dart';
 
 import 'colors.dart';
 
+/// Product faces. Both are Inter until a display face is chosen.
+///
+/// The family is the variable Inter already bundled by Forui, so the app
+/// does not ship a second copy. Weights from 400 through 900 come from that
+/// file's weight axis.
+abstract final class AppFontFamily {
+  static const header = 'packages/forui/Inter';
+  static const body = 'packages/forui/Inter';
+}
+
 abstract final class AppTypography {
   static const display = TextStyle(
+    fontFamily: AppFontFamily.header,
     fontSize: 40,
     height: 1.05,
     fontWeight: FontWeight.w800,
@@ -11,6 +22,7 @@ abstract final class AppTypography {
   );
 
   static const title = TextStyle(
+    fontFamily: AppFontFamily.header,
     fontSize: 28,
     height: 1.15,
     fontWeight: FontWeight.w800,
@@ -18,6 +30,7 @@ abstract final class AppTypography {
   );
 
   static const headline = TextStyle(
+    fontFamily: AppFontFamily.header,
     fontSize: 22,
     height: 1.2,
     fontWeight: FontWeight.w800,
@@ -25,6 +38,7 @@ abstract final class AppTypography {
   );
 
   static const body = TextStyle(
+    fontFamily: AppFontFamily.body,
     fontSize: 16,
     height: 1.4,
     fontWeight: FontWeight.w400,
@@ -32,6 +46,7 @@ abstract final class AppTypography {
   );
 
   static const emphasis = TextStyle(
+    fontFamily: AppFontFamily.body,
     fontSize: 16,
     height: 1.35,
     fontWeight: FontWeight.w700,
@@ -39,6 +54,7 @@ abstract final class AppTypography {
   );
 
   static const label = TextStyle(
+    fontFamily: AppFontFamily.body,
     fontSize: 14,
     height: 1.3,
     fontWeight: FontWeight.w700,
@@ -47,6 +63,7 @@ abstract final class AppTypography {
   );
 
   static const button = TextStyle(
+    fontFamily: AppFontFamily.header,
     fontSize: 16,
     height: 1.2,
     fontWeight: FontWeight.w800,
