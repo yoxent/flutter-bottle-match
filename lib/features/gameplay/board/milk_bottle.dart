@@ -15,28 +15,17 @@ double bottleCellExtent(double maxWidth) {
   return min(width * BottleArt.height / BottleArt.width, 168.0);
 }
 
-/// The bottle artwork in [assets/images]. The outline stays dark. The fill
-/// image is the interior below the liquid line, tinted per bottle.
+/// The bottle artwork in [assets/images/bottles]. Each file is already colored.
 abstract final class BottleArt {
-  static const outline = 'assets/images/filled-bottle.png';
-  static const fill = 'assets/images/filled-bottle-fill.png';
-  static const width = 238.0;
-  static const height = 512.0;
+  static const width = 96.0;
+  static const height = 144.0;
 }
 
 class MilkBottle extends StatelessWidget {
-  const MilkBottle({
-    required this.color,
-    required this.filled,
-    required this.selected,
-    this.letter = '',
-    super.key,
-  });
+  const MilkBottle({required this.asset, required this.selected, super.key});
 
-  final Color color;
-  final bool filled;
+  final String asset;
   final bool selected;
-  final String letter;
 
   @override
   Widget build(BuildContext context) {
@@ -51,62 +40,13 @@ class MilkBottle extends StatelessWidget {
               borderRadius: const BorderRadius.all(Radius.circular(18)),
             ),
           ),
-        if (filled)
-          ColorFiltered(
-            colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
-            child: Image.asset(
-              BottleArt.fill,
-              fit: BoxFit.contain,
-              filterQuality: FilterQuality.medium,
-              excludeFromSemantics: true,
-            ),
-          ),
         Image.asset(
-          BottleArt.outline,
+          asset,
           fit: BoxFit.contain,
           filterQuality: FilterQuality.medium,
           excludeFromSemantics: true,
         ),
-        if (letter.isNotEmpty)
-          Align(
-            alignment: const Alignment(0, 0.28),
-            child: FractionallySizedBox(
-              widthFactor: 0.5,
-              heightFactor: 0.2,
-              child: _BottleLetter(letter),
-            ),
-          ),
       ],
-    );
-  }
-}
-
-class _BottleLetter extends StatelessWidget {
-  const _BottleLetter(this.letter);
-
-  final String letter;
-
-  @override
-  Widget build(BuildContext context) {
-    const style = TextStyle(
-      fontSize: 48,
-      fontWeight: FontWeight.w800,
-      height: 1,
-    );
-    final stroke = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 5
-      ..color = AppColors.ink;
-    return ExcludeSemantics(
-      child: FittedBox(
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            Text(letter, style: style.copyWith(foreground: stroke)),
-            Text(letter, style: style.copyWith(color: AppColors.cream)),
-          ],
-        ),
-      ),
     );
   }
 }

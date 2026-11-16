@@ -15,7 +15,7 @@ abstract final class AppColors {
   static const danger = Color(0xFFFF5A6A);
 }
 
-/// Fifteen distinct piece colors. Players use the first twelve. Bottles use all.
+/// Fifteen distinct piece colors. Players use the first twelve.
 abstract final class PieceColors {
   static const crimson = Color(0xFFE6194B);
   static const tangerine = Color(0xFFFF7F00);

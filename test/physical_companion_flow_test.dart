@@ -14,7 +14,7 @@ import 'support/match_fixtures.dart';
 import 'support/memory_repositories.dart';
 
 void main() {
-  test('players and bottles share one set of distinct colors', () {
+  test('players use the first twelve piece colors', () {
     expect(bottleColors, hasLength(MatchConstraints.maxBottles));
     expect(bottleColors.toSet(), hasLength(bottleColors.length));
     expect(playerColors, bottleColors.sublist(0, MatchConstraints.maxPlayers));

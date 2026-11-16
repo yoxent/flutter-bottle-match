@@ -5,6 +5,7 @@ import '../../../design_system/tokens/spacing.dart';
 import '../../../domain/rules/bottle_round.dart';
 import 'bottle_faces.dart';
 import 'milk_bottle.dart';
+import 'shelf_rack.dart';
 
 /// The shared arrangement. A drag onto another bottle swaps those two.
 /// Tapping two bottles, or Move to position, does the same swap.
@@ -53,7 +54,7 @@ class _BottleRackState extends State<BottleRack> {
           const SizedBox(height: AppSpacing.sm),
         ],
         Expanded(
-          child: BottleGrid(
+          child: ShelfBoard(
             itemCount: widget.arrangement.length,
             itemBuilder: (context, index) => _tile(index),
           ),
@@ -104,19 +105,14 @@ class _BottleRackState extends State<BottleRack> {
         'Position ${index + 1}, $letter'
         '${selected ? ', selected' : ''}';
     MilkBottle tile() {
-      return MilkBottle(
-        color: face.color,
-        filled: true,
-        selected: selected,
-        letter: letter,
-      );
+      return MilkBottle(asset: face.asset, selected: selected);
     }
 
     return Draggable<int>(
       data: index,
       feedback: Material(
         color: Colors.transparent,
-        child: SizedBox(width: 88, height: 168, child: tile()),
+        child: SizedBox(width: 72, height: 108, child: tile()),
       ),
       childWhenDragging: Opacity(opacity: 0.35, child: tile()),
       child: DragTarget<int>(

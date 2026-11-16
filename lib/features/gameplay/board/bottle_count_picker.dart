@@ -19,8 +19,7 @@ class BottleCountPicker extends StatelessWidget {
           label: 'Bottle ${index + 1}',
           child: MilkBottle(
             key: Key('setup-bottle-${index + 1}'),
-            color: face.color,
-            filled: true,
+            asset: face.asset,
             selected: false,
           ),
         );
