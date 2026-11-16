@@ -28,6 +28,7 @@ import '../board/bottle_rack.dart';
 import 'match_copy.dart';
 import 'physical_companion_screen.dart';
 import 'player_faces.dart';
+import 'round_opening_view.dart';
 import 'round_win_view.dart';
 
 class PhysicalSessionScreen extends ConsumerStatefulWidget {
@@ -77,6 +78,7 @@ class _PhysicalSessionScreenState extends ConsumerState<PhysicalSessionScreen>
     final snapshot = session.asData?.value;
     final swapping = _isSwapping(snapshot);
     final gating = _isTurnGate(snapshot);
+    final opening = snapshot?.phase == MatchPhase.roundIntroduction;
     return PopScope(
       canPop: _allowPop,
       onPopInvokedWithResult: (didPop, _) {
@@ -86,8 +88,9 @@ class _PhysicalSessionScreenState extends ConsumerState<PhysicalSessionScreen>
         unawaited(_leave());
       },
       child: GamePage(
-        title: _pageTitle(snapshot),
-        showBack: snapshot?.phase != MatchPhase.championship,
+        title: opening ? null : _pageTitle(snapshot),
+        showBack: !opening && snapshot?.phase != MatchPhase.championship,
+        bleed: opening,
         onBack: () => unawaited(_leave()),
         actions: swapping || gating
             ? _boardActions(snapshot!, showClock: swapping)
@@ -120,6 +123,7 @@ class _PhysicalSessionScreenState extends ConsumerState<PhysicalSessionScreen>
                   ),
                 );
               },
+              onBack: () => unawaited(_leave()),
             );
           },
         ),
@@ -260,8 +264,7 @@ bool _isSwapping(MatchSnapshot? snapshot) {
 bool _isTurnGate(MatchSnapshot? snapshot) {
   return snapshot != null &&
       snapshot.phase == MatchPhase.playerHandoff &&
-      snapshot.judgesGuesses &&
-      snapshot.settings.timer != TurnTimerDuration.off;
+      snapshot.judgesGuesses;
 }
 
 String? _pageTitle(MatchSnapshot? snapshot) {
@@ -294,6 +297,7 @@ class _SessionBody extends ConsumerWidget {
     required this.onRun,
     required this.onHome,
     required this.onChangeSettings,
+    required this.onBack,
   });
 
   final MatchSnapshot snapshot;
@@ -303,10 +307,23 @@ class _SessionBody extends ConsumerWidget {
   final Future<void> Function(Future<String?> Function() action) onRun;
   final VoidCallback onHome;
   final VoidCallback onChangeSettings;
+  final VoidCallback onBack;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final notifier = ref.read(matchSessionProvider.notifier);
+    if (snapshot.phase == MatchPhase.roundIntroduction) {
+      return RoundOpeningView(
+        snapshot: snapshot,
+        error: error,
+        onBegin: () => onRun(notifier.beginRound),
+        onBack: onBack,
+        onPause: () => onRun(() async {
+          await notifier.pauseForInterruption();
+          return null;
+        }),
+      );
+    }
     final reducedMotion = ref
         .watch(settingsControllerProvider)
         .maybeWhen(data: (value) => value.reducedMotion, orElse: () => true);
@@ -404,18 +421,7 @@ class _SessionBody extends ConsumerWidget {
   }) {
     final text = Theme.of(context).textTheme;
     return switch (snapshot.phase) {
-      MatchPhase.roundIntroduction => (
-        body: [_RoundOpening(snapshot: snapshot)],
-        actions: [
-          _primary(
-            key: const Key('begin-round'),
-            label: 'Start round',
-            color: AppColors.hotPink,
-            onPressed: () => onRun(notifier.beginRound),
-          ),
-          _pause(notifier),
-        ],
-      ),
+      MatchPhase.roundIntroduction => (body: const [], actions: const []),
       MatchPhase.playerHandoff => (
         body: [
           _playerHero(context, currentPlayerName(snapshot)),
@@ -783,53 +789,6 @@ class _SessionBody extends ConsumerWidget {
   }
 }
 
-class _RoundOpening extends StatelessWidget {
-  const _RoundOpening({required this.snapshot});
-
-  final MatchSnapshot snapshot;
-
-  @override
-  Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    final names = visiblePlayerNames(snapshot.roster);
-    return Column(
-      key: const Key('turn-order-preview'),
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text('Round ${snapshot.roundNumber}', style: text.headlineSmall),
-        const SizedBox(height: AppSpacing.xs),
-        Text(goalLabel(snapshot), style: text.titleMedium),
-        const SizedBox(height: AppSpacing.sm),
-        Wrap(
-          spacing: AppSpacing.xs,
-          runSpacing: AppSpacing.xs,
-          children: [
-            for (var index = 0; index < snapshot.roster.length; index++)
-              _ScoreChip(
-                name: names[index],
-                score: snapshot.scores[snapshot.roster[index].id] ?? 0,
-                color: playerColorFor(index),
-              ),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.lg),
-        Text(
-          turnOrderName(snapshot.settings.turnOrder),
-          style: text.titleMedium,
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        for (var index = 0; index < snapshot.roundOrder.length; index++)
-          _TurnSeat(snapshot: snapshot, index: index),
-        const SizedBox(height: AppSpacing.sm),
-        Text(
-          turnOrderSummary(snapshot.settings.turnOrder),
-          style: text.bodyLarge,
-        ),
-      ],
-    );
-  }
-}
-
 class _TurnGate extends StatelessWidget {
   const _TurnGate({
     required this.snapshot,
@@ -927,51 +886,6 @@ class _PlayButton extends StatelessWidget {
           ),
         );
       },
-    );
-  }
-}
-
-class _TurnSeat extends StatelessWidget {
-  const _TurnSeat({required this.snapshot, required this.index});
-
-  final MatchSnapshot snapshot;
-  final int index;
-
-  @override
-  Widget build(BuildContext context) {
-    final id = snapshot.roundOrder[index];
-    final rosterIndex = snapshot.roster.indexWhere((player) => player.id == id);
-    final player = rosterIndex < 0
-        ? snapshot.roster.first
-        : snapshot.roster[rosterIndex];
-    final name = visibleName(snapshot.roster, id);
-    final face = playerFaceFor(player.avatarIndex);
-    final place = index + 1;
-    return Semantics(
-      label: '$place, $name',
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-        child: Row(
-          children: [
-            SizedBox(
-              width: AppTouch.minimum,
-              child: Text(
-                '$place',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-            ),
-            Icon(
-              face.icon,
-              color: playerColorFor(rosterIndex < 0 ? 0 : rosterIndex),
-              size: 28,
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: Text(name, style: Theme.of(context).textTheme.titleMedium),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

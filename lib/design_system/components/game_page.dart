@@ -15,6 +15,7 @@ class GamePage extends StatelessWidget {
     this.onBack,
     this.actions = const [],
     this.footer,
+    this.bleed = false,
     super.key,
   });
 
@@ -25,54 +26,58 @@ class GamePage extends StatelessWidget {
   final List<Widget> actions;
   final Widget? footer;
 
+  /// Lets [body] paint the whole screen, including behind the system bars.
+  final bool bleed;
+
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
-        backgroundColor: AppColors.background,
-        body: DecoratedBox(
-          decoration: const BoxDecoration(color: AppColors.background),
-          child: GameViewport(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (showBack || title != null || actions.isNotEmpty)
-                  Row(
-                    children: [
-                      if (showBack)
-                        IconButton(
-                          tooltip: 'Back',
-                          onPressed:
-                              onBack ?? () => Navigator.maybePop(context),
-                          icon: const Icon(FLucideIcons.arrowLeft),
-                          color: AppColors.cream,
-                          constraints: const BoxConstraints(
-                            minWidth: AppTouch.minimum,
-                            minHeight: AppTouch.minimum,
-                          ),
-                        ),
-                      if (title != null)
-                        Expanded(
-                          child: Text(
-                            title!,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.headlineSmall,
-                          ),
-                        )
-                      else
-                        const Spacer(),
-                      ...actions,
-                    ],
-                  ),
-                const SizedBox(height: AppSpacing.md),
-                Expanded(child: body),
-                if (footer != null) ActionFooter(child: footer!),
-              ],
-            ),
-          ),
-        ),
+        backgroundColor: Colors.transparent,
+        body: bleed
+            ? body
+            : GameViewport(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (showBack || title != null || actions.isNotEmpty)
+                      Row(
+                        children: [
+                          if (showBack)
+                            IconButton(
+                              tooltip: 'Back',
+                              onPressed:
+                                  onBack ?? () => Navigator.maybePop(context),
+                              icon: const Icon(FLucideIcons.arrowLeft),
+                              color: AppColors.cream,
+                              constraints: const BoxConstraints(
+                                minWidth: AppTouch.minimum,
+                                minHeight: AppTouch.minimum,
+                              ),
+                            ),
+                          if (title != null)
+                            Expanded(
+                              child: Text(
+                                title!,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(
+                                  context,
+                                ).textTheme.headlineSmall,
+                              ),
+                            )
+                          else
+                            const Spacer(),
+                          ...actions,
+                        ],
+                      ),
+                    const SizedBox(height: AppSpacing.md),
+                    Expanded(child: body),
+                    if (footer != null) ActionFooter(child: footer!),
+                  ],
+                ),
+              ),
       ),
     );
   }

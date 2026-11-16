@@ -27,6 +27,7 @@ void main() {
 
       match = _accept(beginRound(match, at: at));
       expect(match.phase, MatchPhase.activeTurn);
+      expect(match.timer.isRunning, isFalse);
       expect(requestWinner(match, at: at), isA<SessionRejected>());
 
       final winner = match.roundOrder[match.currentPlayerIndex!];
@@ -38,7 +39,7 @@ void main() {
     },
   );
 
-  test('the timer starts on ready and the next player does not inherit it', () {
+  test('the timer starts with the board and the next player waits', () {
     final at = sampleUpdatedAt;
     var match = _accept(
       openFirstRound(
@@ -48,9 +49,7 @@ void main() {
       ),
     );
     match = _accept(beginRound(match, at: at));
-    expect(match.timer.isRunning, isFalse);
-
-    match = _accept(markPlayerReady(match, at: at));
+    expect(match.phase, MatchPhase.activeTurn);
     expect(
       match.timer.remainingAt(at.add(const Duration(seconds: 10))),
       const Duration(seconds: 20),
@@ -209,7 +208,6 @@ void main() {
       ),
     );
     match = _accept(beginRound(match, at: at));
-    match = _accept(markPlayerReady(match, at: at));
     final order = match.roundOrder;
     final target = match.board!.target;
 
@@ -264,12 +262,13 @@ void main() {
     match = _accept(beginRound(match, at: at));
     match = _accept(submitArrangement(match, at: at));
 
-    expect(match.phase, MatchPhase.activeTurn);
+    expect(match.phase, MatchPhase.playerHandoff);
     expect(match.board!.guesses, hasLength(1));
     expect(match.wins, isEmpty);
 
+    match = _accept(markPlayerReady(match, at: at));
     match = _accept(submitArrangement(match, at: at));
-    expect(match.phase, MatchPhase.activeTurn);
+    expect(match.phase, MatchPhase.playerHandoff);
     expect(match.board!.guesses, hasLength(2));
 
     final rejecting = _accept(
@@ -287,6 +286,7 @@ void main() {
     );
     var blocked = _accept(beginRound(rejecting, at: at));
     blocked = _accept(submitArrangement(blocked, at: at));
+    blocked = _accept(markPlayerReady(blocked, at: at));
     expect(submitArrangement(blocked, at: at), isA<SessionRejected>());
     expect(blocked.board!.guesses, hasLength(1));
   });
@@ -301,7 +301,6 @@ void main() {
       ),
     );
     match = _accept(beginRound(match, at: at));
-    match = _accept(markPlayerReady(match, at: at));
     final committed = match.board!.committed;
     match = _accept(moveBottle(match, from: 0, to: 1, at: at));
 

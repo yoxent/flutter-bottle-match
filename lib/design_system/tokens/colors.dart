@@ -13,6 +13,13 @@ abstract final class AppColors {
   static const yellow = Color(0xFFFFE14A);
   static const lime = Color(0xFFB8F25A);
   static const danger = Color(0xFFFF5A6A);
+
+  /// Round-opening stage. The page itself uses [background].
+  static const stagePanelTop = Color(0xFF35138E);
+  static const stagePill = Color(0xFF6A38C8);
+  static const stageYellow = Color(0xFFFFE500);
+  static const stageBlob = Color(0xFF7C4DDB);
+  static const stageBlobDeep = Color(0xFF2A0A72);
 }
 
 /// Fifteen distinct piece colors. Players use the first twelve.

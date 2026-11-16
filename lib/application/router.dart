@@ -13,35 +13,50 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/',
         name: 'home',
-        builder: (context, state) => const HomeScreen(),
+        pageBuilder: (context, state) => NoTransitionPage<void>(
+          key: state.pageKey,
+          child: const HomeScreen(),
+        ),
         routes: [
           GoRoute(
             path: 'match',
             name: 'match',
-            builder: (context, state) {
+            pageBuilder: (context, state) {
               final extra = state.extra;
-              return PhysicalCompanionScreen(
-                initial: extra is SetupDraft ? extra : null,
-                replaceMatchId: state.uri.queryParameters['replace'],
+              return NoTransitionPage<void>(
+                key: state.pageKey,
+                child: PhysicalCompanionScreen(
+                  initial: extra is SetupDraft ? extra : null,
+                  replaceMatchId: state.uri.queryParameters['replace'],
+                ),
               );
             },
             routes: [
               GoRoute(
                 path: 'play',
                 name: 'match-play',
-                builder: (context, state) => const PhysicalSessionScreen(),
+                pageBuilder: (context, state) => NoTransitionPage<void>(
+                  key: state.pageKey,
+                  child: const PhysicalSessionScreen(),
+                ),
               ),
             ],
           ),
           GoRoute(
             path: 'settings',
             name: 'settings',
-            builder: (context, state) => const SettingsScreen(),
+            pageBuilder: (context, state) => NoTransitionPage<void>(
+              key: state.pageKey,
+              child: const SettingsScreen(),
+            ),
           ),
           GoRoute(
             path: 'recovery',
             name: 'recovery',
-            builder: (context, state) => const RecoveryScreen(),
+            pageBuilder: (context, state) => NoTransitionPage<void>(
+              key: state.pageKey,
+              child: const RecoveryScreen(),
+            ),
           ),
         ],
       ),

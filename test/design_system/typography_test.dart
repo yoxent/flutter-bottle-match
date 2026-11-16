@@ -15,11 +15,18 @@ void main() {
         AppTypography.title,
         AppTypography.headline,
         AppTypography.button,
+        AppTypography.stageKicker,
+        AppTypography.stageAnnouncement,
+        AppTypography.stageOrder,
+        AppTypography.stageName,
+        AppTypography.stageButton,
       ];
       const reading = [
         AppTypography.body,
         AppTypography.emphasis,
         AppTypography.label,
+        AppTypography.stageScore,
+        AppTypography.stageNote,
       ];
 
       for (final style in headers) {

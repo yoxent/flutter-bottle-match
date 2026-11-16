@@ -41,6 +41,46 @@ String currentPlayerId(MatchSnapshot snapshot) {
   return snapshot.roundOrder[index];
 }
 
+String roundOpeningLabel(int roundNumber) {
+  final number = roundNumber < 0 ? 0 : roundNumber;
+  return 'ROUND ${number.toString().padLeft(2, '0')}';
+}
+
+/// One line for the round-opening header.
+///
+/// A selected-player match shows that player's score. First-to-target shows
+/// the target, because no single player owns the goal.
+String roundOpeningScoreLine(MatchSnapshot snapshot) {
+  final target = snapshot.settings.targetRoundWins;
+  if (snapshot.settings.winRule == WinRule.firstToTarget) {
+    return 'FIRST TO $target WINS';
+  }
+  final name = visibleName(
+    snapshot.roster,
+    snapshot.settings.selectedPlayerId,
+  ).toUpperCase();
+  final score = snapshot.scores[snapshot.settings.selectedPlayerId] ?? 0;
+  return '$name GOAL • $score / $target WINS';
+}
+
+String roundOpeningOrderTitle(TurnOrder order) {
+  return switch (order) {
+    TurnOrder.random => 'Player Order',
+    TurnOrder.linear => 'Linear player order',
+    TurnOrder.snake => 'Reversed player order',
+    TurnOrder.rotating => 'Rotated player order',
+  };
+}
+
+String roundOpeningOrderNote(TurnOrder order) {
+  return switch (order) {
+    TurnOrder.random => 'A fresh order is randomized every round.',
+    TurnOrder.linear => 'The same order is used every round.',
+    TurnOrder.snake => 'The order reverses every round.',
+    TurnOrder.rotating => 'The next player starts each round.',
+  };
+}
+
 String goalLabel(MatchSnapshot snapshot) {
   final target = snapshot.settings.targetRoundWins;
   if (snapshot.settings.winRule == WinRule.firstToTarget) {

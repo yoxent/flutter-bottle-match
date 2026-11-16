@@ -317,15 +317,25 @@ void main() {
     expect(play, lessThan(practice));
     await _tap(tester, 'start-match');
 
-    expect(find.text('Start round'), findsOneWidget);
+    expect(find.text('BEGIN ROUND'), findsOneWidget);
     expect(find.byKey(const Key('turn-order-preview')), findsOneWidget);
-    expect(find.text('Round 1'), findsOneWidget);
-    expect(find.text('First to 3'), findsOneWidget);
-    expect(find.text('Random'), findsOneWidget);
-    expect(find.text('New order every round'), findsOneWidget);
-    expect(find.text('Player 1'), findsWidgets);
-    expect(find.text('Player 2'), findsWidgets);
+    expect(find.text('ROUND 01'), findsOneWidget);
+    expect(find.text('FIRST TO 3 WINS'), findsOneWidget);
+    expect(find.text('NEW ROUND!'), findsOneWidget);
+    expect(find.text('Player Order'), findsOneWidget);
+    expect(
+      find.text('A fresh order is randomized every round.'),
+      findsOneWidget,
+    );
+    expect(find.text('PLAYER 1'), findsWidgets);
+    expect(find.text('PLAYER 2'), findsWidgets);
+    expect(find.byTooltip('Pause'), findsOneWidget);
+    final stage = tester.getRect(find.byKey(const Key('turn-order-preview')));
+    final begin = tester.getCenter(find.byKey(const Key('begin-round')));
+    expect(begin.dy, greaterThan(stage.top + stage.height * 0.7));
     await _tap(tester, 'begin-round');
+    expect(find.text('Play'), findsNothing);
+    expect(find.byKey(const Key('check-arrangement')), findsOneWidget);
     await _tap(tester, 'bottle-position-0');
     expect(find.byKey(const Key('move-to-1')), findsOneWidget);
     await _tap(tester, 'move-to-1');
@@ -340,18 +350,20 @@ void main() {
     expect(matches.active!.phase, MatchPhase.roundResult);
   });
 
-  testWidgets('a timer stays covered until the current player presses play', (
+  testWidgets('a wrong check waits on play before the next turn', (
     tester,
   ) async {
     await _pump(tester, MemoryMatchRepository());
     await tester.tap(find.byKey(const Key('new-game')));
     await tester.pumpAndSettle();
-    await _tap(tester, 'setup-tab-match');
-    await _tap(tester, 'turn-timer');
-    await _tap(tester, 'timer-seconds30');
     await _tap(tester, 'continue-to-review');
     await _tap(tester, 'start-match');
     await _tap(tester, 'begin-round');
+
+    expect(find.byKey(const Key('check-arrangement')), findsOneWidget);
+    expect(find.text('Play'), findsNothing);
+
+    await _tap(tester, 'check-arrangement');
 
     expect(find.text('Play'), findsOneWidget);
     expect(find.byType(BackdropFilter), findsOneWidget);

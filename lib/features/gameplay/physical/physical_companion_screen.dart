@@ -710,7 +710,7 @@ class _PlayerNamePanel extends StatelessWidget {
     required this.onIconPressed,
   });
 
-  static const height = 72.0;
+  static const height = 62.0;
 
   final int index;
   final Color color;
@@ -726,11 +726,17 @@ class _PlayerNamePanel extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: color,
-          borderRadius: BorderRadius.circular(height / 2),
-          border: Border.all(color: AppColors.cream, width: 2),
+          borderRadius: BorderRadius.circular(AppRadii.pill),
+          border: Border.all(
+            color: AppColors.cream.withValues(alpha: 0.55),
+            width: 1.5,
+          ),
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.sm,
+            vertical: AppSpacing.xs,
+          ),
           child: Row(
             children: [
               _PlayerBadge(
@@ -777,7 +783,7 @@ class _PlayerNamePanel extends StatelessWidget {
 class _PlayerBadge extends StatelessWidget {
   const _PlayerBadge({required this.child});
 
-  static const size = 52.0;
+  static const size = 34.0;
 
   final Widget child;
 
@@ -787,14 +793,14 @@ class _PlayerBadge extends StatelessWidget {
       decoration: const BoxDecoration(
         color: AppColors.cream,
         shape: BoxShape.circle,
-        border: Border.fromBorderSide(
-          BorderSide(color: AppColors.ink, width: 2),
-        ),
       ),
       child: SizedBox(
         width: size,
         height: size,
-        child: Center(child: child),
+        child: Padding(
+          padding: const EdgeInsets.all(2),
+          child: FittedBox(child: child),
+        ),
       ),
     );
   }
@@ -821,17 +827,35 @@ class _PlayerIconButton extends StatelessWidget {
       excludeSemantics: true,
       child: Material(
         key: Key('player-icon-$index'),
-        color: AppColors.cream,
-        shape: const CircleBorder(
-          side: BorderSide(color: AppColors.ink, width: 2),
-        ),
+        type: MaterialType.transparency,
         child: InkWell(
           onTap: onPressed,
           customBorder: const CircleBorder(),
-          child: SizedBox(
-            width: _PlayerBadge.size,
-            height: _PlayerBadge.size,
-            child: Icon(face.icon, color: color),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              minWidth: AppTouch.minimum,
+              minHeight: AppTouch.minimum,
+            ),
+            child: Center(
+              child: Container(
+                width: 46,
+                height: 46,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.cream,
+                  border: Border.all(color: AppColors.ink, width: 2.5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.ink.withValues(alpha: 0.55),
+                      offset: const Offset(0, 3),
+                      blurRadius: 0,
+                    ),
+                  ],
+                ),
+                child: Icon(face.icon, color: color, size: 26),
+              ),
+            ),
           ),
         ),
       ),
