@@ -12,6 +12,97 @@ import '../../../domain/models/match_snapshot.dart';
 import 'match_copy.dart';
 import 'player_faces.dart';
 
+/// Shown between turns so the phone can be handed to the player about to play.
+class PassPhoneView extends StatelessWidget {
+  const PassPhoneView({
+    required this.snapshot,
+    required this.onReady,
+    required this.onPause,
+    this.error,
+    super.key,
+  });
+
+  final MatchSnapshot snapshot;
+  final String? error;
+  final VoidCallback onReady;
+  final VoidCallback onPause;
+
+  @override
+  Widget build(BuildContext context) {
+    final current = currentPlayerName(snapshot);
+    return SafeArea(
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: GameViewport.maxWidth),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              AppSpacing.md,
+              AppSpacing.lg,
+              AppSpacing.lg,
+            ),
+            child: Column(
+              children: [
+                _StageHeader(
+                  label: roundOpeningLabel(snapshot.roundNumber),
+                  score: roundOpeningScoreLine(snapshot),
+                  onPause: onPause,
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                const _NewRoundAnnouncement(headline: 'PASS THE PHONE!'),
+                const SizedBox(height: AppSpacing.lg),
+                Expanded(
+                  child: ScrollConfiguration(
+                    behavior: ScrollConfiguration.of(
+                      context,
+                    ).copyWith(scrollbars: false),
+                    child: ListView(
+                      padding: EdgeInsets.zero,
+                      physics: const ClampingScrollPhysics(),
+                      children: [
+                        _PassTurn(snapshot: snapshot),
+                        const SizedBox(height: AppSpacing.lg),
+                        Text(
+                          'Hand the phone to $current.',
+                          textAlign: TextAlign.center,
+                          style: AppTypography.stageNote,
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                        const Text(
+                          'The board is shared between turns.',
+                          textAlign: TextAlign.center,
+                          style: AppTypography.stageNote,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                if (error != null) ...[
+                  Text(
+                    error!,
+                    textAlign: TextAlign.center,
+                    style: AppTypography.stageNote.copyWith(
+                      color: AppColors.danger,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                ],
+                _BeginRoundButton(
+                  label: "I'M READY",
+                  buttonKey: const Key('player-ready'),
+                  onPressed: onReady,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Party-game introduction shown before a round begins.
 class RoundOpeningView extends StatelessWidget {
   const RoundOpeningView({
@@ -82,7 +173,10 @@ class _StagePanel extends StatelessWidget {
                   onPause: onPause,
                 ),
                 const SizedBox(height: AppSpacing.lg),
-                _NewRoundAnnouncement(title: roundOpeningOrderTitle(order)),
+                _NewRoundAnnouncement(
+                  headline: 'NEW ROUND!',
+                  title: roundOpeningOrderTitle(order),
+                ),
                 const SizedBox(height: AppSpacing.lg),
                 Expanded(
                   child: ScrollConfiguration(
@@ -113,7 +207,11 @@ class _StagePanel extends StatelessWidget {
                   ),
                   const SizedBox(height: AppSpacing.sm),
                 ],
-                _BeginRoundButton(onPressed: onBegin),
+                _BeginRoundButton(
+                  label: 'BEGIN ROUND',
+                  buttonKey: const Key('begin-round'),
+                  onPressed: onBegin,
+                ),
               ],
             ),
           ),
@@ -127,13 +225,13 @@ class _StageHeader extends StatelessWidget {
   const _StageHeader({
     required this.label,
     required this.score,
-    required this.onBack,
     required this.onPause,
+    this.onBack,
   });
 
   final String label;
   final String score;
-  final VoidCallback onBack;
+  final VoidCallback? onBack;
   final VoidCallback onPause;
 
   @override
@@ -142,11 +240,14 @@ class _StageHeader extends StatelessWidget {
       children: [
         Row(
           children: [
-            _HeaderIcon(
-              tooltip: 'Back',
-              icon: FLucideIcons.arrowLeft,
-              onPressed: onBack,
-            ),
+            if (onBack == null)
+              const SizedBox(width: AppTouch.minimum, height: AppTouch.minimum)
+            else
+              _HeaderIcon(
+                tooltip: 'Back',
+                icon: FLucideIcons.arrowLeft,
+                onPressed: onBack!,
+              ),
             Expanded(
               child: Center(
                 child: FittedBox(
@@ -232,32 +333,101 @@ class _RoundPill extends StatelessWidget {
 }
 
 class _NewRoundAnnouncement extends StatelessWidget {
-  const _NewRoundAnnouncement({required this.title});
+  const _NewRoundAnnouncement({required this.headline, this.title});
 
-  final String title;
+  final String headline;
+  final String? title;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        const FittedBox(
+        FittedBox(
           fit: BoxFit.scaleDown,
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _Sparkle(color: AppColors.stageYellow, size: 18),
-              SizedBox(width: AppSpacing.md),
-              Text('NEW ROUND!', style: AppTypography.stageAnnouncement),
-              SizedBox(width: AppSpacing.md),
-              _Sparkle(color: AppColors.cyan, size: 14),
+              const _Sparkle(color: AppColors.stageYellow, size: 18),
+              const SizedBox(width: AppSpacing.md),
+              Text(headline, style: AppTypography.stageAnnouncement),
+              const SizedBox(width: AppSpacing.md),
+              const _Sparkle(color: AppColors.cyan, size: 14),
             ],
           ),
         ),
-        const SizedBox(height: AppSpacing.xs),
-        Text(
-          title,
-          textAlign: TextAlign.center,
-          style: AppTypography.stageOrder,
+        if (title != null) ...[
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            title!,
+            textAlign: TextAlign.center,
+            style: AppTypography.stageOrder,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _PassTurn extends StatelessWidget {
+  const _PassTurn({required this.snapshot});
+
+  final MatchSnapshot snapshot;
+
+  @override
+  Widget build(BuildContext context) {
+    final index = snapshot.currentPlayerIndex;
+    final orderIndex =
+        index == null || index < 0 || index >= snapshot.roundOrder.length
+        ? 0
+        : index;
+    final id = snapshot.roundOrder[orderIndex];
+    final rosterIndex = snapshot.roster.indexWhere((player) => player.id == id);
+    final player = rosterIndex < 0
+        ? snapshot.roster.first
+        : snapshot.roster[rosterIndex];
+    final name = visibleName(snapshot.roster, id);
+    final piece = playerColorFor(rosterIndex < 0 ? 0 : rosterIndex);
+    final onPiece =
+        ThemeData.estimateBrightnessForColor(piece) == Brightness.dark
+        ? AppColors.cream
+        : AppColors.ink;
+    return Column(
+      children: [
+        Center(
+          child: _PlayerAvatar(
+            icon: playerFaceFor(player.avatarIndex).icon,
+            color: piece,
+            size: 72,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: piece,
+            borderRadius: BorderRadius.circular(AppRadii.pill),
+            border: Border.all(
+              color: AppColors.cream.withValues(alpha: 0.55),
+              width: 1.5,
+            ),
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 62),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: AppSpacing.xs,
+              ),
+              child: Center(
+                child: Text(
+                  "${name.toUpperCase()}'S TURN",
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: AppTypography.stageName.copyWith(color: onPiece),
+                ),
+              ),
+            ),
+          ),
         ),
       ],
     );
@@ -370,16 +540,21 @@ class _SeatBadge extends StatelessWidget {
 }
 
 class _PlayerAvatar extends StatelessWidget {
-  const _PlayerAvatar({required this.icon, required this.color});
+  const _PlayerAvatar({
+    required this.icon,
+    required this.color,
+    this.size = 46,
+  });
 
   final IconData icon;
   final Color color;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 46,
-      height: 46,
+      width: size,
+      height: size,
       alignment: Alignment.center,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
@@ -393,14 +568,20 @@ class _PlayerAvatar extends StatelessWidget {
           ),
         ],
       ),
-      child: Icon(icon, color: color, size: 26),
+      child: Icon(icon, color: color, size: size * 26 / 46),
     );
   }
 }
 
 class _BeginRoundButton extends StatelessWidget {
-  const _BeginRoundButton({required this.onPressed});
+  const _BeginRoundButton({
+    required this.label,
+    required this.buttonKey,
+    required this.onPressed,
+  });
 
+  final String label;
+  final Key buttonKey;
   final VoidCallback onPressed;
 
   @override
@@ -420,7 +601,7 @@ class _BeginRoundButton extends StatelessWidget {
             ],
           ),
           child: FilledButton(
-            key: const Key('begin-round'),
+            key: buttonKey,
             style: FilledButton.styleFrom(
               elevation: 0,
               minimumSize: const Size.fromHeight(52),
@@ -430,10 +611,7 @@ class _BeginRoundButton extends StatelessWidget {
               textStyle: AppTypography.stageButton,
             ),
             onPressed: onPressed,
-            child: const FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text('BEGIN ROUND'),
-            ),
+            child: FittedBox(fit: BoxFit.scaleDown, child: Text(label)),
           ),
         ),
       ),

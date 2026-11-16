@@ -55,6 +55,11 @@ void main() {
     await tester.pumpAndSettle();
     await _tap(tester, 'resume-saved-match');
     expect(find.byKey(const Key('begin-round')), findsNothing);
+    expect(find.byTooltip('Back'), findsNothing);
+    expect(find.text('Pause'), findsOneWidget);
+
+    await tester.tap(find.text('Pause'));
+    await tester.pumpAndSettle();
     expect(find.byTooltip('Back'), findsOneWidget);
 
     await _back(tester);

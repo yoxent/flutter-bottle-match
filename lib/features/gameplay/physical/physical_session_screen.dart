@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -25,6 +24,7 @@ import '../../../domain/rules/goal_evaluation.dart';
 import '../../../domain/rules/phase_transition.dart';
 import '../../../domain/rules/player_names.dart';
 import '../board/bottle_rack.dart';
+import 'guess_feedback_view.dart';
 import 'match_copy.dart';
 import 'physical_companion_screen.dart';
 import 'player_faces.dart';
@@ -47,6 +47,7 @@ class _PhysicalSessionScreenState extends ConsumerState<PhysicalSessionScreen>
   DateTime? _expiredFor;
   var _leaving = false;
   var _allowPop = false;
+  var _guessFeedback = false;
 
   @override
   void initState() {
@@ -79,54 +80,69 @@ class _PhysicalSessionScreenState extends ConsumerState<PhysicalSessionScreen>
     final swapping = _isSwapping(snapshot);
     final gating = _isTurnGate(snapshot);
     final opening = snapshot?.phase == MatchPhase.roundIntroduction;
+    final feedback = _guessFeedback && gating;
+    final stage = opening || (gating && !feedback);
+    final locked = _playLocked(snapshot);
     return PopScope(
       canPop: _allowPop,
       onPopInvokedWithResult: (didPop, _) {
-        if (didPop || _leaving) {
+        if (didPop || _leaving || _playLocked(snapshot)) {
           return;
         }
         unawaited(_leave());
       },
-      child: GamePage(
-        title: opening ? null : _pageTitle(snapshot),
-        showBack: !opening && snapshot?.phase != MatchPhase.championship,
-        bleed: opening,
-        onBack: () => unawaited(_leave()),
-        actions: swapping || gating
-            ? _boardActions(snapshot!, showClock: swapping)
-            : const [],
-        body: session.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => Text('$error'),
-          data: (snapshot) {
-            if (snapshot == null) {
-              return const Text('There is no saved match to play.');
-            }
-            _rememberWinner(snapshot);
-            return _SessionBody(
-              snapshot: snapshot,
-              error: _error,
-              winnerId: _winnerId,
-              onWinner: (id) => setState(() => _winnerId = id),
-              onRun: _run,
-              onHome: () {
-                ref.invalidate(savedMatchProvider);
-                context.go('/');
-              },
-              onChangeSettings: () {
-                ref.invalidate(savedMatchProvider);
-                context.go(
-                  '/match',
-                  extra: SetupDraft(
-                    roster: snapshot.roster,
-                    settings: snapshot.settings,
-                  ),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          GamePage(
+            title: stage ? null : _pageTitle(snapshot),
+            showBack: !stage && !locked,
+            bleed: stage,
+            onBack: () => unawaited(_leave()),
+            actions: swapping || feedback
+                ? _boardActions(snapshot!, showClock: swapping)
+                : const [],
+            body: session.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, _) => Text('$error'),
+              data: (snapshot) {
+                if (snapshot == null) {
+                  return const Text('There is no saved match to play.');
+                }
+                _rememberWinner(snapshot);
+                return _SessionBody(
+                  snapshot: snapshot,
+                  error: _error,
+                  winnerId: _winnerId,
+                  onWinner: (id) => setState(() => _winnerId = id),
+                  onRun: _run,
+                  onHome: () {
+                    ref.invalidate(savedMatchProvider);
+                    context.go('/');
+                  },
+                  onChangeSettings: () {
+                    ref.invalidate(savedMatchProvider);
+                    context.go(
+                      '/match',
+                      extra: SetupDraft(
+                        roster: snapshot.roster,
+                        settings: snapshot.settings,
+                      ),
+                    );
+                  },
+                  onBack: () => unawaited(_leave()),
+                  guessFeedback: _guessFeedback && _isTurnGate(snapshot),
+                  onCheck: _checkArrangement,
                 );
               },
-              onBack: () => unawaited(_leave()),
-            );
-          },
-        ),
+            ),
+          ),
+          if (feedback && snapshot != null)
+            GuessFeedbackView(
+              snapshot: snapshot,
+              onNext: () => setState(() => _guessFeedback = false),
+            ),
+        ],
       ),
     );
   }
@@ -194,6 +210,35 @@ class _PhysicalSessionScreenState extends ConsumerState<PhysicalSessionScreen>
       return;
     }
     setState(() => _error = error);
+  }
+
+  Future<void> _checkArrangement() async {
+    final before = ref.read(matchSessionProvider).asData?.value;
+    final error = await ref
+        .read(matchSessionProvider.notifier)
+        .submitArrangement();
+    if (!mounted) {
+      return;
+    }
+    final after = ref.read(matchSessionProvider).asData?.value;
+    final feedback =
+        error == null &&
+        before?.phase == MatchPhase.activeTurn &&
+        after?.phase == MatchPhase.playerHandoff &&
+        (after?.board?.guesses.length ?? 0) >
+            (before?.board?.guesses.length ?? 0);
+    setState(() {
+      _error = error;
+      _guessFeedback = feedback;
+    });
+  }
+
+  bool _playLocked(MatchSnapshot? snapshot) {
+    final phase = snapshot?.phase;
+    return phase == MatchPhase.activeTurn ||
+        phase == MatchPhase.playerHandoff ||
+        phase == MatchPhase.roundResult ||
+        phase == MatchPhase.championship;
   }
 
   Future<void> _leave() async {
@@ -298,6 +343,8 @@ class _SessionBody extends ConsumerWidget {
     required this.onHome,
     required this.onChangeSettings,
     required this.onBack,
+    required this.guessFeedback,
+    required this.onCheck,
   });
 
   final MatchSnapshot snapshot;
@@ -308,6 +355,8 @@ class _SessionBody extends ConsumerWidget {
   final VoidCallback onHome;
   final VoidCallback onChangeSettings;
   final VoidCallback onBack;
+  final bool guessFeedback;
+  final VoidCallback onCheck;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -340,11 +389,25 @@ class _SessionBody extends ConsumerWidget {
       reducedMotion: reducedMotion,
       goal: goal,
     );
+    if (_isTurnGate(snapshot) && guessFeedback) {
+      final board = snapshot.board!;
+      return IgnorePointer(
+        child: BottleRack(
+          arrangement: board.pending,
+          opening: board.labelOrder,
+          onSwap: (_, _) {},
+        ),
+      );
+    }
     if (_isTurnGate(snapshot)) {
-      return _TurnGate(
+      return PassPhoneView(
         snapshot: snapshot,
         error: error,
-        onPlay: () => onRun(notifier.markReady),
+        onReady: () => onRun(notifier.markReady),
+        onPause: () => onRun(() async {
+          await notifier.pauseForInterruption();
+          return null;
+        }),
       );
     }
     if (_isSwapping(snapshot)) {
@@ -459,7 +522,7 @@ class _SessionBody extends ConsumerWidget {
               key: const Key('check-arrangement'),
               label: 'Check arrangement',
               color: AppColors.hotPink,
-              onPressed: () => onRun(notifier.submitArrangement),
+              onPressed: onCheck,
             )
           else ...[
             _primary(
@@ -786,107 +849,6 @@ class _SessionBody extends ConsumerWidget {
     }
     final latest = guesses.last;
     return '${latest.correct} of ${snapshot.board!.target.length} correct';
-  }
-}
-
-class _TurnGate extends StatelessWidget {
-  const _TurnGate({
-    required this.snapshot,
-    required this.error,
-    required this.onPlay,
-  });
-
-  final MatchSnapshot snapshot;
-  final String? error;
-  final VoidCallback onPlay;
-
-  @override
-  Widget build(BuildContext context) {
-    final board = snapshot.board!;
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        IgnorePointer(
-          child: BottleRack(
-            arrangement: board.pending,
-            opening: board.labelOrder,
-            onSwap: (_, _) {},
-          ),
-        ),
-        ClipRect(
-          child: BackdropFilter(
-            filter: ui.ImageFilter.blur(sigmaX: 28, sigmaY: 28),
-            child: ColoredBox(
-              color: AppColors.background.withValues(alpha: 0.55),
-            ),
-          ),
-        ),
-        Center(child: _PlayButton(onPressed: onPlay)),
-        if (error != null)
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.md),
-              child: Text(
-                error!,
-                style: Theme.of(context).textTheme.bodyLarge,
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-class _PlayButton extends StatelessWidget {
-  const _PlayButton({required this.onPressed});
-
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final diameter = (constraints.biggest.shortestSide * 0.72).clamp(
-          168.0,
-          320.0,
-        );
-        return Semantics(
-          key: const Key('player-ready'),
-          button: true,
-          label: 'Play',
-          excludeSemantics: true,
-          child: SizedBox(
-            width: diameter,
-            height: diameter,
-            child: FilledButton(
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.yellow,
-                foregroundColor: AppColors.ink,
-                shape: const CircleBorder(),
-                textStyle: AppTypography.button,
-              ),
-              onPressed: onPressed,
-              child: FittedBox(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      FLucideIcons.play,
-                      size: diameter * 0.34,
-                      color: AppColors.ink,
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
-                    const Text('Play'),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
   }
 }
 

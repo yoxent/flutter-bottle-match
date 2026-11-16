@@ -5,6 +5,7 @@ import 'package:flutter_bottle_match/design_system/components/buttons/game_switc
 import 'package:flutter_bottle_match/design_system/tokens/colors.dart';
 import 'package:flutter_bottle_match/domain/models/match_phase.dart';
 import 'package:flutter_bottle_match/domain/rules/match_constraints.dart';
+import 'package:flutter_bottle_match/features/gameplay/physical/match_copy.dart';
 import 'package:flutter_bottle_match/features/gameplay/physical/player_faces.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -345,15 +346,17 @@ void main() {
     expect(find.text('Round 1'), findsNWidgets(2));
     expect(find.byKey(const Key('round-win-standings')), findsOneWidget);
     expect(find.byKey(const Key('next-round')), findsOneWidget);
+    expect(find.byTooltip('Back'), findsNothing);
     expect(find.text('Pause'), findsNothing);
     expect(matches.active!.wins.where((win) => !win.reversed), hasLength(1));
     expect(matches.active!.phase, MatchPhase.roundResult);
   });
 
-  testWidgets('a wrong check waits on play before the next turn', (
+  testWidgets('a wrong check shows the count before the pass-the-phone page', (
     tester,
   ) async {
-    await _pump(tester, MemoryMatchRepository());
+    final matches = MemoryMatchRepository();
+    await _pump(tester, matches);
     await tester.tap(find.byKey(const Key('new-game')));
     await tester.pumpAndSettle();
     await _tap(tester, 'continue-to-review');
@@ -361,17 +364,41 @@ void main() {
     await _tap(tester, 'begin-round');
 
     expect(find.byKey(const Key('check-arrangement')), findsOneWidget);
-    expect(find.text('Play'), findsNothing);
+    expect(find.byTooltip('Back'), findsNothing);
+    expect(find.byTooltip('Pause'), findsOneWidget);
+    expect(find.text('PASS THE PHONE!'), findsNothing);
 
     await _tap(tester, 'check-arrangement');
 
-    expect(find.text('Play'), findsOneWidget);
-    expect(find.byType(BackdropFilter), findsOneWidget);
+    final board = matches.active!.board!;
+    final correct = board.guesses.last.correct;
+    final total = board.target.length;
+    expect(find.text('NICE TRY!'), findsOneWidget);
+    expect(find.text('$correct / $total'), findsOneWidget);
+    expect(find.text('NEXT PLAYER'), findsOneWidget);
+    expect(find.byTooltip('Back'), findsNothing);
+    expect(find.byTooltip('Pause'), findsOneWidget);
+    expect(find.text('Exact positions stay hidden'), findsNothing);
+    expect(find.text('PASS THE PHONE!'), findsNothing);
+
+    await _tap(tester, 'next-player-feedback');
+
+    final current = currentPlayerName(matches.active!);
+    expect(find.text('NICE TRY!'), findsNothing);
+    expect(find.text('PASS THE PHONE!'), findsOneWidget);
+    expect(find.text('ROUND 01'), findsOneWidget);
+    expect(find.text("${current.toUpperCase()}'S TURN"), findsOneWidget);
+    expect(find.text('Hand the phone to $current.'), findsOneWidget);
+    expect(find.text('The board is shared between turns.'), findsOneWidget);
+    expect(find.byTooltip('Back'), findsNothing);
+    expect(find.byTooltip('Pause'), findsOneWidget);
+    expect(find.text("I'M READY"), findsOneWidget);
+    expect(find.text('NEW ROUND!'), findsNothing);
     expect(find.byKey(const Key('check-arrangement')), findsNothing);
 
     await _tap(tester, 'player-ready');
 
-    expect(find.byType(BackdropFilter), findsNothing);
+    expect(find.text('PASS THE PHONE!'), findsNothing);
     expect(find.byKey(const Key('check-arrangement')), findsOneWidget);
   });
 
