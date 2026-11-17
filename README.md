@@ -36,6 +36,16 @@ flutter run -d ios
 
 The phone layout is portrait. Tablets and the browser can use a wider window; the game column stays centered.
 
+## Build
+
+From the repository root, with the local Firebase files present:
+
+```powershell
+tool/flutter_with_firebase.ps1 build appbundle
+```
+
+The bundle is written to `build/app/outputs/bundle/release/app-release.aab`.
+
 ## Checks
 
 ```bash

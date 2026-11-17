@@ -10,6 +10,22 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+val googleServicesFile = file("google-services.json")
+val releaseBuild = gradle.startParameter.taskNames.any { taskName ->
+    taskName.contains("Release", ignoreCase = true)
+}
+if (releaseBuild && googleServicesFile.exists()) {
+    val currentKey = Regex("\"current_key\"\\s*:\\s*\"([^\"]*)\"")
+        .find(googleServicesFile.readText())
+        ?.groupValues
+        ?.get(1)
+    if (currentKey.isNullOrEmpty()) {
+        throw GradleException(
+            "Release build requires the Firebase API key. Run tool/flutter_with_firebase.ps1.",
+        )
+    }
+}
+
 val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("key.properties")
 if (keystorePropertiesFile.exists()) {
