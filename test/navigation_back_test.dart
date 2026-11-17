@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 
 import 'support/match_fixtures.dart';
 import 'support/memory_repositories.dart';
+import 'support/silent_sound_output.dart';
 
 void main() {
   testWidgets('back moves through setup, then home', (tester) async {
@@ -130,6 +131,7 @@ Future<void> _pump(
         settingsRepositoryProvider.overrideWithValue(
           MemorySettingsRepository(),
         ),
+        soundOutputProvider.overrideWithValue(const SilentSoundOutput()),
       ],
       child: const ColorfulBottleMatchApp(),
     ),

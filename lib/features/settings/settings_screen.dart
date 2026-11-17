@@ -7,6 +7,7 @@ import '../../application/controllers/settings_controller.dart';
 import '../../design_system/components/buttons/game_switch.dart';
 import '../../design_system/components/game_page.dart';
 import '../../design_system/components/section_card.dart';
+import '../../design_system/components/volume_slider.dart';
 import '../../design_system/tokens/spacing.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -38,11 +39,44 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     value: value.soundEnabled,
                     semanticsLabel: 'Sound',
                     label: const Text('Sound'),
-                    description: const Text('Selection and result sounds.'),
+                    description: const Text('Turns music and effects off.'),
                     onChange: (enabled) => _save(
                       () => ref
                           .read(settingsControllerProvider.notifier)
                           .setSoundEnabled(enabled),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  VolumeSlider(
+                    id: 'master',
+                    label: 'Master',
+                    percent: value.masterVolume,
+                    onChanged: (percent) => _save(
+                      () => ref
+                          .read(settingsControllerProvider.notifier)
+                          .setMasterVolume(percent),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  VolumeSlider(
+                    id: 'music',
+                    label: 'Music',
+                    percent: value.bgmVolume,
+                    onChanged: (percent) => _save(
+                      () => ref
+                          .read(settingsControllerProvider.notifier)
+                          .setBgmVolume(percent),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  VolumeSlider(
+                    id: 'effects',
+                    label: 'Effects',
+                    percent: value.sfxVolume,
+                    onChanged: (percent) => _save(
+                      () => ref
+                          .read(settingsControllerProvider.notifier)
+                          .setSfxVolume(percent),
                     ),
                   ),
                   const SizedBox(height: AppSpacing.md),

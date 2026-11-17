@@ -13,6 +13,7 @@ import 'package:forui/forui.dart';
 
 import 'support/match_fixtures.dart';
 import 'support/memory_repositories.dart';
+import 'support/silent_sound_output.dart';
 
 void main() {
   test('players use the first twelve piece colors', () {
@@ -514,6 +515,7 @@ Future<void> _pump(WidgetTester tester, MemoryMatchRepository matches) async {
         settingsRepositoryProvider.overrideWithValue(
           MemorySettingsRepository(),
         ),
+        soundOutputProvider.overrideWithValue(const SilentSoundOutput()),
       ],
       child: const ColorfulBottleMatchApp(),
     ),

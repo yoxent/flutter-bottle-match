@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:forui/forui.dart';
 
+import '../../application/audio/button_press.dart';
 import '../tokens/colors.dart';
 import '../tokens/spacing.dart';
 import '../layout/game_viewport.dart';
 import 'action_footer.dart';
 
-class GamePage extends StatelessWidget {
+class GamePage extends ConsumerWidget {
   const GamePage({
     required this.body,
     this.title,
@@ -30,7 +32,7 @@ class GamePage extends StatelessWidget {
   final bool bleed;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
@@ -45,15 +47,20 @@ class GamePage extends StatelessWidget {
                       Row(
                         children: [
                           if (showBack)
-                            IconButton(
-                              tooltip: 'Back',
+                            buttonTap(
+                              ref,
                               onPressed:
                                   onBack ?? () => Navigator.maybePop(context),
-                              icon: const Icon(FLucideIcons.arrowLeft),
-                              color: AppColors.cream,
-                              constraints: const BoxConstraints(
-                                minWidth: AppTouch.minimum,
-                                minHeight: AppTouch.minimum,
+                              child: IconButton(
+                                tooltip: 'Back',
+                                onPressed:
+                                    onBack ?? () => Navigator.maybePop(context),
+                                icon: const Icon(FLucideIcons.arrowLeft),
+                                color: AppColors.cream,
+                                constraints: const BoxConstraints(
+                                  minWidth: AppTouch.minimum,
+                                  minHeight: AppTouch.minimum,
+                                ),
                               ),
                             ),
                           if (title != null)

@@ -1,5 +1,9 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
 
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../application/audio/game_audio.dart';
 import '../../../design_system/tokens/colors.dart';
 import '../../../design_system/tokens/spacing.dart';
 import '../../../domain/rules/bottle_round.dart';
@@ -9,7 +13,7 @@ import 'shelf_rack.dart';
 
 /// The shared arrangement. A drag onto another bottle swaps those two.
 /// Tapping two bottles, or Move to position, does the same swap.
-class BottleRack extends StatefulWidget {
+class BottleRack extends ConsumerStatefulWidget {
   const BottleRack({
     required this.arrangement,
     required this.opening,
@@ -24,11 +28,12 @@ class BottleRack extends StatefulWidget {
   final BottleHint? hint;
 
   @override
-  State<BottleRack> createState() => _BottleRackState();
+  ConsumerState<BottleRack> createState() => _BottleRackState();
 }
 
-class _BottleRackState extends State<BottleRack> {
+class _BottleRackState extends ConsumerState<BottleRack> {
   int? _selected;
+  var _soundedOnDown = false;
 
   @override
   void didUpdateWidget(BottleRack oldWidget) {
@@ -110,6 +115,13 @@ class _BottleRackState extends State<BottleRack> {
 
     return Draggable<int>(
       data: index,
+      onDragEnd: (_) {
+        final alreadyPlayed = _soundedOnDown;
+        _soundedOnDown = false;
+        if (!alreadyPlayed) {
+          _playMove();
+        }
+      },
       feedback: Material(
         color: Colors.transparent,
         child: SizedBox(width: 72, height: 108, child: tile()),
@@ -123,11 +135,15 @@ class _BottleRackState extends State<BottleRack> {
             button: true,
             label: label,
             selected: selected,
-            child: GestureDetector(
-              key: Key('bottle-position-$index'),
+            child: Listener(
               behavior: HitTestBehavior.opaque,
-              onTap: () => _tap(index),
-              child: SizedBox.expand(child: tile()),
+              onPointerDown: (_) => _soundSecondTap(index),
+              child: GestureDetector(
+                key: Key('bottle-position-$index'),
+                behavior: HitTestBehavior.opaque,
+                onTap: () => _tap(index),
+                child: SizedBox.expand(child: tile()),
+              ),
             ),
           );
         },
@@ -145,6 +161,20 @@ class _BottleRackState extends State<BottleRack> {
     }
     widget.onSwap(selected, index);
     setState(() => _selected = null);
+  }
+
+  void _soundSecondTap(int index) {
+    _soundedOnDown = false;
+    final selected = _selected;
+    if (selected == null || selected == index) {
+      return;
+    }
+    _soundedOnDown = true;
+    _playMove();
+  }
+
+  void _playMove() {
+    unawaited(ref.read(gameAudioProvider.notifier).playBottleMove());
   }
 }
 

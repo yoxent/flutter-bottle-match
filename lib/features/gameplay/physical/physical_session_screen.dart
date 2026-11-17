@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:forui/forui.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../application/audio/button_press.dart';
 import '../../../application/controllers/match_session_controller.dart';
 import '../../../application/controllers/saved_match_controller.dart';
 import '../../../application/controllers/settings_controller.dart';
@@ -279,8 +280,8 @@ class _PhysicalSessionScreenState extends ConsumerState<PhysicalSessionScreen>
           formatRemaining(snapshot.timer.remainingAt(DateTime.now())),
           style: Theme.of(context).textTheme.titleMedium,
         ),
-      IconButton(
-        tooltip: 'Pause',
+      buttonTap(
+        ref,
         onPressed: () => unawaited(
           _run(() async {
             await ref
@@ -289,11 +290,22 @@ class _PhysicalSessionScreenState extends ConsumerState<PhysicalSessionScreen>
             return null;
           }),
         ),
-        icon: const Icon(FLucideIcons.pause),
-        color: AppColors.cream,
-        constraints: const BoxConstraints(
-          minWidth: AppTouch.minimum,
-          minHeight: AppTouch.minimum,
+        child: IconButton(
+          tooltip: 'Pause',
+          onPressed: () => unawaited(
+            _run(() async {
+              await ref
+                  .read(matchSessionProvider.notifier)
+                  .pauseForInterruption();
+              return null;
+            }),
+          ),
+          icon: const Icon(FLucideIcons.pause),
+          color: AppColors.cream,
+          constraints: const BoxConstraints(
+            minWidth: AppTouch.minimum,
+            minHeight: AppTouch.minimum,
+          ),
         ),
       ),
     ];
@@ -878,7 +890,7 @@ class _WinnerChoice extends StatelessWidget {
   }
 }
 
-class _PauseEditor extends StatefulWidget {
+class _PauseEditor extends ConsumerStatefulWidget {
   const _PauseEditor({
     required this.roster,
     required this.onSave,
@@ -890,10 +902,10 @@ class _PauseEditor extends StatefulWidget {
   final void Function(String id, int avatarIndex) onAvatar;
 
   @override
-  State<_PauseEditor> createState() => _PauseEditorState();
+  ConsumerState<_PauseEditor> createState() => _PauseEditorState();
 }
 
-class _PauseEditorState extends State<_PauseEditor> {
+class _PauseEditorState extends ConsumerState<_PauseEditor> {
   late final List<TextEditingController> _names;
 
   @override
@@ -921,19 +933,26 @@ class _PauseEditorState extends State<_PauseEditor> {
         for (var index = 0; index < widget.roster.length; index++) ...[
           Row(
             children: [
-              IconButton(
-                tooltip: 'Change icon',
+              buttonTap(
+                ref,
                 onPressed: () => widget.onAvatar(
                   widget.roster[index].id,
                   widget.roster[index].avatarIndex + 1,
                 ),
-                icon: Icon(
-                  playerFaceFor(widget.roster[index].avatarIndex).icon,
-                  color: playerColorFor(index),
-                ),
-                constraints: const BoxConstraints(
-                  minWidth: AppTouch.minimum,
-                  minHeight: AppTouch.minimum,
+                child: IconButton(
+                  tooltip: 'Change icon',
+                  onPressed: () => widget.onAvatar(
+                    widget.roster[index].id,
+                    widget.roster[index].avatarIndex + 1,
+                  ),
+                  icon: Icon(
+                    playerFaceFor(widget.roster[index].avatarIndex).icon,
+                    color: playerColorFor(index),
+                  ),
+                  constraints: const BoxConstraints(
+                    minWidth: AppTouch.minimum,
+                    minHeight: AppTouch.minimum,
+                  ),
                 ),
               ),
               const SizedBox(width: AppSpacing.xs),
@@ -988,24 +1007,30 @@ Widget _secondary({
   return _QuietButton(key: key, label: label, onPressed: onPressed);
 }
 
-class _QuietButton extends StatelessWidget {
+class _QuietButton extends ConsumerWidget {
   const _QuietButton({required this.label, required this.onPressed, super.key});
 
   final String label;
   final VoidCallback? onPressed;
 
   @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      child: TextButton(
-        style: TextButton.styleFrom(
-          foregroundColor: AppColors.creamMuted,
-          minimumSize: const Size.fromHeight(AppTouch.minimum),
-          textStyle: AppTypography.button.copyWith(color: AppColors.creamMuted),
+  Widget build(BuildContext context, WidgetRef ref) {
+    return buttonTap(
+      ref,
+      onPressed: onPressed,
+      child: SizedBox(
+        width: double.infinity,
+        child: TextButton(
+          style: TextButton.styleFrom(
+            foregroundColor: AppColors.creamMuted,
+            minimumSize: const Size.fromHeight(AppTouch.minimum),
+            textStyle: AppTypography.button.copyWith(
+              color: AppColors.creamMuted,
+            ),
+          ),
+          onPressed: onPressed,
+          child: Text(label),
         ),
-        onPressed: onPressed,
-        child: Text(label),
       ),
     );
   }

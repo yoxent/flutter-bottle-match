@@ -168,6 +168,7 @@ class _PlayerIconPanelState extends State<_PlayerIconPanel> {
                     borderRadius: BorderRadius.circular(AppRadii.sm),
                     child: InkWell(
                       key: Key('icon-choice-$index'),
+                      enableFeedback: false,
                       onTap: taken
                           ? null
                           : () => setState(() => _selected = index),
@@ -352,6 +353,7 @@ class _CategoryStripState extends State<_CategoryStrip> {
                   borderRadius: BorderRadius.circular(AppRadii.sm),
                   child: InkWell(
                     key: Key('icon-category-${item.label}'),
+                    enableFeedback: false,
                     onTap: () => widget.onSelect(index),
                     borderRadius: BorderRadius.circular(AppRadii.sm),
                     child: SizedBox(

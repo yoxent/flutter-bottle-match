@@ -17,6 +17,9 @@ void main() {
         soundEnabled: false,
         hapticsEnabled: false,
         reducedMotion: true,
+        masterVolume: 75,
+        bgmVolume: 50,
+        sfxVolume: 0,
       ),
     );
 
@@ -27,5 +30,24 @@ void main() {
     expect(stored.soundEnabled, isFalse);
     expect(stored.hapticsEnabled, isFalse);
     expect(stored.reducedMotion, isTrue);
+    expect(stored.masterVolume, 75);
+    expect(stored.bgmVolume, 50);
+    expect(stored.sfxVolume, 0);
+  });
+
+  test('missing volumes start at 70 and off-step values snap', () async {
+    SharedPreferences.setMockInitialValues({
+      SharedPreferencesSettingsRepository.masterVolumeKey: 72,
+    });
+    final preferences = await SharedPreferences.getInstance();
+    final repository = SharedPreferencesSettingsRepository(preferences);
+
+    final stored = await repository.read();
+    expect(stored.masterVolume, 70);
+    expect(stored.bgmVolume, AppSettings.defaultVolume);
+    expect(stored.sfxVolume, AppSettings.defaultVolume);
+    expect(AppSettings.snapVolume(73), 75);
+    expect(AppSettings.snapVolume(100), 100);
+    expect(AppSettings.snapVolume(0), 0);
   });
 }

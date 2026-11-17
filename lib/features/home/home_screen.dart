@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:forui/forui.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../application/audio/button_press.dart';
 import '../../application/controllers/saved_match_controller.dart';
 import '../../application/controllers/settings_controller.dart';
 import '../../core/constants/app_info.dart';
@@ -28,14 +29,18 @@ class HomeScreen extends ConsumerWidget {
 
     return GamePage(
       actions: [
-        IconButton(
-          tooltip: 'Settings',
+        buttonTap(
+          ref,
           onPressed: () => context.push('/settings'),
-          icon: const Icon(FLucideIcons.settings),
-          color: AppColors.cream,
-          constraints: const BoxConstraints(
-            minWidth: AppTouch.minimum,
-            minHeight: AppTouch.minimum,
+          child: IconButton(
+            tooltip: 'Settings',
+            onPressed: () => context.push('/settings'),
+            icon: const Icon(FLucideIcons.settings),
+            color: AppColors.cream,
+            constraints: const BoxConstraints(
+              minWidth: AppTouch.minimum,
+              minHeight: AppTouch.minimum,
+            ),
           ),
         ),
       ],

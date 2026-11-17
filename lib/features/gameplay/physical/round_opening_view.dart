@@ -1,8 +1,10 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:forui/forui.dart';
 
+import '../../../application/audio/button_press.dart';
 import '../../../design_system/layout/game_viewport.dart';
 import '../../../design_system/tokens/colors.dart';
 import '../../../design_system/tokens/radii.dart';
@@ -281,7 +283,7 @@ class _StageHeader extends StatelessWidget {
   }
 }
 
-class _HeaderIcon extends StatelessWidget {
+class _HeaderIcon extends ConsumerWidget {
   const _HeaderIcon({
     required this.tooltip,
     required this.icon,
@@ -293,16 +295,20 @@ class _HeaderIcon extends StatelessWidget {
   final VoidCallback onPressed;
 
   @override
-  Widget build(BuildContext context) {
-    return IconButton(
-      tooltip: tooltip,
+  Widget build(BuildContext context, WidgetRef ref) {
+    return buttonTap(
+      ref,
       onPressed: onPressed,
-      icon: Icon(icon),
-      color: AppColors.cream,
-      padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(
-        minWidth: AppTouch.minimum,
-        minHeight: AppTouch.minimum,
+      child: IconButton(
+        tooltip: tooltip,
+        onPressed: onPressed,
+        icon: Icon(icon),
+        color: AppColors.cream,
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints(
+          minWidth: AppTouch.minimum,
+          minHeight: AppTouch.minimum,
+        ),
       ),
     );
   }
@@ -573,7 +579,7 @@ class _PlayerAvatar extends StatelessWidget {
   }
 }
 
-class _BeginRoundButton extends StatelessWidget {
+class _BeginRoundButton extends ConsumerWidget {
   const _BeginRoundButton({
     required this.label,
     required this.buttonKey,
@@ -585,7 +591,7 @@ class _BeginRoundButton extends StatelessWidget {
   final VoidCallback onPressed;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Center(
       child: FractionallySizedBox(
         widthFactor: 0.8,
@@ -600,18 +606,22 @@ class _BeginRoundButton extends StatelessWidget {
               ),
             ],
           ),
-          child: FilledButton(
-            key: buttonKey,
-            style: FilledButton.styleFrom(
-              elevation: 0,
-              minimumSize: const Size.fromHeight(52),
-              backgroundColor: AppColors.stageYellow,
-              foregroundColor: AppColors.stagePanelTop,
-              shape: const StadiumBorder(),
-              textStyle: AppTypography.stageButton,
-            ),
+          child: buttonTap(
+            ref,
             onPressed: onPressed,
-            child: FittedBox(fit: BoxFit.scaleDown, child: Text(label)),
+            child: FilledButton(
+              key: buttonKey,
+              style: FilledButton.styleFrom(
+                elevation: 0,
+                minimumSize: const Size.fromHeight(52),
+                backgroundColor: AppColors.stageYellow,
+                foregroundColor: AppColors.stagePanelTop,
+                shape: const StadiumBorder(),
+                textStyle: AppTypography.stageButton,
+              ),
+              onPressed: onPressed,
+              child: FittedBox(fit: BoxFit.scaleDown, child: Text(label)),
+            ),
           ),
         ),
       ),

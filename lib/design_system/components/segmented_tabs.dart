@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../application/audio/button_press.dart';
 import '../tokens/colors.dart';
 import '../tokens/radii.dart';
 import '../tokens/spacing.dart';
@@ -12,7 +14,7 @@ class SegmentedTab {
 }
 
 /// One group visible at a time. The selected segment uses the yellow token.
-class SegmentedTabs extends StatelessWidget {
+class SegmentedTabs extends ConsumerWidget {
   const SegmentedTabs({
     required this.tabs,
     required this.selectedIndex,
@@ -25,7 +27,7 @@ class SegmentedTabs extends StatelessWidget {
   final ValueChanged<int> onSelected;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: AppColors.card,
@@ -37,10 +39,14 @@ class SegmentedTabs extends StatelessWidget {
           children: [
             for (var index = 0; index < tabs.length; index++)
               Expanded(
-                child: _Segment(
-                  tab: tabs[index],
-                  selected: index == selectedIndex,
+                child: buttonTap(
+                  ref,
                   onPressed: () => onSelected(index),
+                  child: _Segment(
+                    tab: tabs[index],
+                    selected: index == selectedIndex,
+                    onPressed: () => onSelected(index),
+                  ),
                 ),
               ),
           ],
@@ -59,7 +65,7 @@ class _Segment extends StatelessWidget {
 
   final SegmentedTab tab;
   final bool selected;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -74,6 +80,7 @@ class _Segment extends StatelessWidget {
         color: selected ? AppColors.yellow : Colors.transparent,
         borderRadius: BorderRadius.circular(AppRadii.md),
         child: InkWell(
+          enableFeedback: false,
           onTap: onPressed,
           borderRadius: BorderRadius.circular(AppRadii.md),
           child: ConstrainedBox(

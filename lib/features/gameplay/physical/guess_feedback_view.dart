@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../application/audio/button_press.dart';
 import '../../../design_system/tokens/colors.dart';
 import '../../../design_system/tokens/radii.dart';
 import '../../../design_system/tokens/spacing.dart';
@@ -183,13 +185,13 @@ class _GuesserMark extends StatelessWidget {
   }
 }
 
-class _NextPlayerButton extends StatelessWidget {
+class _NextPlayerButton extends ConsumerWidget {
   const _NextPlayerButton({required this.onPressed});
 
   final VoidCallback onPressed;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(AppRadii.pill),
@@ -201,20 +203,24 @@ class _NextPlayerButton extends StatelessWidget {
           ),
         ],
       ),
-      child: FilledButton(
-        key: const Key('next-player-feedback'),
-        style: FilledButton.styleFrom(
-          elevation: 0,
-          minimumSize: const Size.fromHeight(52),
-          backgroundColor: AppColors.stageYellow,
-          foregroundColor: AppColors.stagePanelTop,
-          shape: const StadiumBorder(),
-          textStyle: AppTypography.stageButton,
-        ),
+      child: buttonTap(
+        ref,
         onPressed: onPressed,
-        child: const FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Text('NEXT PLAYER'),
+        child: FilledButton(
+          key: const Key('next-player-feedback'),
+          style: FilledButton.styleFrom(
+            elevation: 0,
+            minimumSize: const Size.fromHeight(52),
+            backgroundColor: AppColors.stageYellow,
+            foregroundColor: AppColors.stagePanelTop,
+            shape: const StadiumBorder(),
+            textStyle: AppTypography.stageButton,
+          ),
+          onPressed: onPressed,
+          child: const FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text('NEXT PLAYER'),
+          ),
         ),
       ),
     );

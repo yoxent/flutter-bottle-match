@@ -31,6 +31,16 @@ abstract final class AppTheme {
       fontFamily: AppFontFamily.body,
       textTheme: AppTypography.textTheme(),
       splashFactory: InkSparkle.splashFactory,
+      // The app plays button_click.wav. Leave the platform click off.
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(enableFeedback: false),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(enableFeedback: false),
+      ),
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(enableFeedback: false),
+      ),
       inputDecorationTheme: const InputDecorationTheme(
         filled: true,
         fillColor: AppColors.background,

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/repositories/match_repository.dart';
 import '../domain/repositories/settings_repository.dart';
+import '../domain/repositories/sound_output.dart';
 
 /// Overridden during startup after Hive is open.
 final matchRepositoryProvider = Provider<MatchRepository>(
@@ -12,4 +13,9 @@ final matchRepositoryProvider = Provider<MatchRepository>(
 final settingsRepositoryProvider = Provider<SettingsRepository>(
   (ref) =>
       throw StateError('SettingsRepository must be overridden at startup.'),
+);
+
+/// Overridden during startup with the platform playback implementation.
+final soundOutputProvider = Provider<SoundOutput>(
+  (ref) => throw StateError('SoundOutput must be overridden at startup.'),
 );

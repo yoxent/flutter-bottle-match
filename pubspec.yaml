@@ -20,6 +20,7 @@ dependencies:
   hive_ce: ^2.23.3
   hive_ce_flutter: ^2.5.0
   shared_preferences: ^2.5.6
+  audioplayers: ^6.8.1
 
 dev_dependencies:
   flutter_test:
@@ -32,3 +33,5 @@ flutter:
   assets:
     - assets/images/bottles/
     - assets/images/racks/
+    - assets/sounds/bgm/
+    - assets/sounds/sfx/

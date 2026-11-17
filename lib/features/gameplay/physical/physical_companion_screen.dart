@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:forui/forui.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../application/audio/button_press.dart';
 import '../../../application/controllers/match_session_controller.dart';
 import '../../../design_system/components/buttons/game_button.dart';
 import '../../../design_system/components/buttons/game_switch.dart';
@@ -668,33 +669,37 @@ class _Stepper extends StatelessWidget {
   }
 }
 
-class _StepButton extends StatelessWidget {
+class _StepButton extends ConsumerWidget {
   const _StepButton({required this.label, required this.onPressed});
 
   final String label;
   final VoidCallback? onPressed;
 
   @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: label,
-      excludeSemantics: true,
-      child: IconButton(
-        tooltip: label,
-        onPressed: onPressed,
-        icon: Text(
-          onPressed == null
-              ? '·'
-              : label.startsWith('More') || label.startsWith('Higher')
-              ? '+'
-              : '−',
-          style: Theme.of(context).textTheme.headlineSmall,
-        ),
-        color: AppColors.cream,
-        constraints: const BoxConstraints(
-          minWidth: AppTouch.minimum,
-          minHeight: AppTouch.minimum,
+  Widget build(BuildContext context, WidgetRef ref) {
+    return buttonTap(
+      ref,
+      onPressed: onPressed,
+      child: Semantics(
+        button: true,
+        label: label,
+        excludeSemantics: true,
+        child: IconButton(
+          tooltip: label,
+          onPressed: onPressed,
+          icon: Text(
+            onPressed == null
+                ? '·'
+                : label.startsWith('More') || label.startsWith('Higher')
+                ? '+'
+                : '−',
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
+          color: AppColors.cream,
+          constraints: const BoxConstraints(
+            minWidth: AppTouch.minimum,
+            minHeight: AppTouch.minimum,
+          ),
         ),
       ),
     );
@@ -806,7 +811,7 @@ class _PlayerBadge extends StatelessWidget {
   }
 }
 
-class _PlayerIconButton extends StatelessWidget {
+class _PlayerIconButton extends ConsumerWidget {
   const _PlayerIconButton({
     required this.index,
     required this.face,
@@ -820,40 +825,45 @@ class _PlayerIconButton extends StatelessWidget {
   final VoidCallback onPressed;
 
   @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: 'Player ${index + 1} icon, ${face.label}',
-      excludeSemantics: true,
-      child: Material(
-        key: Key('player-icon-$index'),
-        type: MaterialType.transparency,
-        child: InkWell(
-          onTap: onPressed,
-          customBorder: const CircleBorder(),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              minWidth: AppTouch.minimum,
-              minHeight: AppTouch.minimum,
-            ),
-            child: Center(
-              child: Container(
-                width: 46,
-                height: 46,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppColors.cream,
-                  border: Border.all(color: AppColors.ink, width: 2.5),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.ink.withValues(alpha: 0.55),
-                      offset: const Offset(0, 3),
-                      blurRadius: 0,
-                    ),
-                  ],
+  Widget build(BuildContext context, WidgetRef ref) {
+    return buttonTap(
+      ref,
+      onPressed: onPressed,
+      child: Semantics(
+        button: true,
+        label: 'Player ${index + 1} icon, ${face.label}',
+        excludeSemantics: true,
+        child: Material(
+          key: Key('player-icon-$index'),
+          type: MaterialType.transparency,
+          child: InkWell(
+            enableFeedback: false,
+            onTap: onPressed,
+            customBorder: const CircleBorder(),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                minWidth: AppTouch.minimum,
+                minHeight: AppTouch.minimum,
+              ),
+              child: Center(
+                child: Container(
+                  width: 46,
+                  height: 46,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppColors.cream,
+                    border: Border.all(color: AppColors.ink, width: 2.5),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.ink.withValues(alpha: 0.55),
+                        offset: const Offset(0, 3),
+                        blurRadius: 0,
+                      ),
+                    ],
+                  ),
+                  child: Icon(face.icon, color: color, size: 26),
                 ),
-                child: Icon(face.icon, color: color, size: 26),
               ),
             ),
           ),

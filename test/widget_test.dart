@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'support/match_fixtures.dart';
 import 'support/memory_repositories.dart';
+import 'support/silent_sound_output.dart';
 
 void main() {
   testWidgets('home starts a game without a mode choice', (tester) async {
@@ -29,6 +30,7 @@ void main() {
 
     await tester.tap(find.byTooltip('Settings'));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Reduced motion'));
     await tester.tap(find.text('Reduced motion'));
     await tester.pumpAndSettle();
 
@@ -48,6 +50,24 @@ void main() {
     expect(find.textContaining('not reshuffled'), findsOneWidget);
     expect(find.textContaining('Maya, Leo'), findsOneWidget);
   });
+
+  testWidgets('volume buttons step by five percent from 70', (tester) async {
+    final settings = MemorySettingsRepository();
+    await _pumpApp(tester, settings: settings);
+
+    await tester.tap(find.byTooltip('Settings'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('70%'), findsNWidgets(3));
+    final increase = find.byTooltip('Increase Music volume');
+    await tester.ensureVisible(increase);
+    await tester.tap(increase);
+    await tester.pumpAndSettle();
+
+    expect(settings.value.bgmVolume, 75);
+    expect(find.text('75%'), findsOneWidget);
+    expect(find.text('70%'), findsNWidgets(2));
+  });
 }
 
 Future<void> _pumpApp(
@@ -64,6 +84,7 @@ Future<void> _pumpApp(
         settingsRepositoryProvider.overrideWithValue(
           settings ?? MemorySettingsRepository(),
         ),
+        soundOutputProvider.overrideWithValue(const SilentSoundOutput()),
       ],
       child: const ColorfulBottleMatchApp(),
     ),
