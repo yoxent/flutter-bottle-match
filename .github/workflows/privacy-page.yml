@@ -10,35 +10,30 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
 
 jobs:
   publish:
-    name: Publish to gh-pages
+    name: Publish privacy policy
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout main
         uses: actions/checkout@v4
 
-      - name: Checkout the published site
-        uses: actions/checkout@v4
+      - name: Upload the privacy page
+        uses: actions/upload-pages-artifact@v3
         with:
-          ref: gh-pages
-          path: site
-          persist-credentials: true
+          path: privacy
 
-      - name: Copy the page from main
-        run: cp privacy/index.html site/index.html
-
-      - name: Publish when the page changed
-        working-directory: site
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add index.html
-          if git diff --cached --quiet; then
-            echo "No privacy policy changes to publish."
-            exit 0
-          fi
-          git commit -m "Publish the privacy policy from main."
-          git push origin HEAD:gh-pages
+      - name: Deploy GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
