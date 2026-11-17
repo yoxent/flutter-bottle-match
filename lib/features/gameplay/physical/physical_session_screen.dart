@@ -6,6 +6,7 @@ import 'package:forui/forui.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../application/audio/button_press.dart';
+import '../../../application/providers.dart';
 import '../../../application/controllers/match_session_controller.dart';
 import '../../../application/controllers/saved_match_controller.dart';
 import '../../../application/controllers/settings_controller.dart';
@@ -16,6 +17,7 @@ import '../../../design_system/tokens/colors.dart';
 import '../../../design_system/tokens/radii.dart';
 import '../../../design_system/tokens/spacing.dart';
 import '../../../design_system/tokens/typography.dart';
+import '../../../domain/ads/match_ads.dart';
 import '../../../domain/models/configuration.dart';
 import '../../../domain/models/match_phase.dart';
 import '../../../domain/models/match_snapshot.dart';
@@ -74,7 +76,12 @@ class _PhysicalSessionScreenState extends ConsumerState<PhysicalSessionScreen>
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(matchSessionProvider);
-    ref.listen(matchSessionProvider, (_, next) => _syncTicker(next.value));
+    ref.listen(matchSessionProvider, (previous, next) {
+      _syncTicker(next.value);
+      if (isMatchJustCompleted(previous?.value?.phase, next.value?.phase)) {
+        unawaited(ref.read(matchAdsProvider).showMatchCompletedAd());
+      }
+    });
     _scheduleTicker(session.value);
 
     final snapshot = session.asData?.value;

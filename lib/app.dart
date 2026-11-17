@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:forui/forui.dart';
 
+import 'ads/ad_banner.dart';
 import 'application/audio/game_audio.dart';
 import 'application/controllers/settings_controller.dart';
 import 'application/router.dart';
@@ -27,15 +28,29 @@ class ColorfulBottleMatchApp extends ConsumerWidget {
       supportedLocales: FLocalizations.supportedLocales,
       localizationsDelegates: FLocalizations.localizationsDelegates,
       builder: (context, child) {
+        final page = child ?? const SizedBox.shrink();
         return FTheme(
           data: AppTheme.foruiTheme,
-          child: Stack(
-            fit: StackFit.expand,
+          child: Column(
             children: [
-              BubbleField(reducedMotion: reducedMotion),
-              Positioned.fill(
-                child: FToaster(
-                  child: FTooltipGroup(child: child ?? const SizedBox.shrink()),
+              const AdBanner(),
+              Expanded(
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    BubbleField(reducedMotion: reducedMotion),
+                    Positioned.fill(
+                      child: FToaster(
+                        child: FTooltipGroup(
+                          child: MediaQuery.removePadding(
+                            context: context,
+                            removeTop: true,
+                            child: page,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -61,7 +76,7 @@ class StartupFailureApp extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: Text(
-              'Colorful Bottle Match could not open local storage.\n\n$details',
+              '${AppInfo.name} could not open local storage.\n\n$details',
             ),
           ),
         ),

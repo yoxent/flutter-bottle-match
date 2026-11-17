@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bottle_match/app.dart';
+import 'package:flutter_bottle_match/core/constants/app_info.dart';
 import 'package:flutter_bottle_match/application/providers.dart';
+import 'package:flutter_bottle_match/design_system/components/ad_banner_placeholder.dart';
+import 'package:flutter_bottle_match/features/home/home_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -12,7 +15,20 @@ void main() {
   testWidgets('home starts a game without a mode choice', (tester) async {
     await _pumpApp(tester);
 
-    expect(find.text('Colorful Bottle Match'), findsOneWidget);
+    expect(find.text('Bottle Match'), findsOneWidget);
+    expect(find.text(AppInfo.version), findsOneWidget);
+    final version = tester.getRect(find.text(AppInfo.version));
+    final newGame = tester.getRect(find.byKey(const Key('new-game')));
+    expect(version.top, greaterThan(newGame.bottom));
+    expect(
+      version.center.dx,
+      greaterThan(tester.getSize(find.byType(HomeScreen)).width / 2),
+    );
+    expect(find.text('Ad banner'), findsOneWidget);
+    expect(
+      tester.getSize(find.byType(AdBannerPlaceholder)).height,
+      AdBannerPlaceholder.height,
+    );
     expect(find.text('New game'), findsOneWidget);
     expect(find.text('Physical Companion'), findsNothing);
     expect(find.text('Fully Digital'), findsNothing);
@@ -22,9 +38,15 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Players'), findsOneWidget);
+    expect(find.text(AppInfo.version), findsNothing);
+    expect(find.text('Ad banner'), findsOneWidget);
   });
 
   testWidgets('settings changes reduced motion', (tester) async {
+    tester.view.physicalSize = const Size(800, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     final settings = MemorySettingsRepository();
     await _pumpApp(tester, settings: settings);
 

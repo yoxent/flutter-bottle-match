@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "599367448198",
+    "project_id": "bottle-match",
+    "storage_bucket": "bottle-match.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:599367448198:android:d4264db34dd5a01a604307",
+        "android_client_info": {
+          "package_name": "com.vorithstudio.bottlematch"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBsNNi7tgZffsz7id_UXtDQEHi1mE04JAE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

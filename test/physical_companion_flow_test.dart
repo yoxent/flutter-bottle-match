@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bottle_match/app.dart';
 import 'package:flutter_bottle_match/application/providers.dart';
+import 'package:flutter_bottle_match/design_system/components/ad_banner_placeholder.dart';
 import 'package:flutter_bottle_match/design_system/components/buttons/game_switch.dart';
 import 'package:flutter_bottle_match/design_system/tokens/colors.dart';
 import 'package:flutter_bottle_match/domain/models/match_phase.dart';
@@ -175,7 +176,7 @@ void main() {
         .icon;
     await tester.tap(find.byKey(const Key('icon-choice-3')));
     await tester.pumpAndSettle();
-    await tester.tapAt(const Offset(8, 8));
+    await tester.tapAt(const Offset(8, AdBannerPlaceholder.height + 8));
     await tester.pumpAndSettle();
 
     expect(

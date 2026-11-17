@@ -1,8 +1,12 @@
-# Colorful Bottle Match
+# Bottle Match
 
 A portrait-first, shared-device party puzzle for Android, iOS, and the browser. Players take turns on one device. There is no account, backend, or online multiplayer.
 
 This repository is the runnable Flutter application. Design notes, architecture decisions, and the rules status live in `E:\Projects\Docs\flutter-bottle-match\Flutter\flutter-bottle-match`.
+
+## Privacy
+
+The privacy policy is published at <https://yoxent.github.io/flutter-bottle-match/>.
 
 ## Requirements
 

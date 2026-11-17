@@ -96,7 +96,7 @@ abstract final class AppTheme {
     return FThemeData(
       colors: colors,
       touch: true,
-      debugLabel: 'Colorful Bottle Match',
+      debugLabel: 'Bottle Match',
       typography: FTypography(
         display: FTypeface.inherit(
           colors: colors,

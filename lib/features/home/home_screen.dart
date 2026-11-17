@@ -44,12 +44,28 @@ class HomeScreen extends ConsumerWidget {
           ),
         ),
       ],
-      body: saved.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) =>
-            _StatusMessage(title: 'Saved match unavailable', body: '$error'),
-        data: (snapshot) =>
-            _HomeContent(snapshot: snapshot, reduceMotion: reduceMotion),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: saved.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, _) => _StatusMessage(
+                title: 'Saved match unavailable',
+                body: '$error',
+              ),
+              data: (snapshot) =>
+                  _HomeContent(snapshot: snapshot, reduceMotion: reduceMotion),
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.only(top: AppSpacing.sm),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: _AppVersion(),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -148,6 +164,26 @@ class _HomeContentState extends State<_HomeContent>
             style: Theme.of(context).textTheme.labelLarge,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _AppVersion extends StatelessWidget {
+  const _AppVersion();
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'Version ${AppInfo.version}',
+      child: ExcludeSemantics(
+        child: Text(
+          AppInfo.version,
+          style: AppTypography.label,
+          textAlign: TextAlign.right,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
       ),
     );
   }

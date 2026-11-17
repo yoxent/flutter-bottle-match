@@ -1,4 +1,4 @@
-package com.vorithstudio.flutter_bottle_match
+package com.vorithstudio.bottlematch
 
 import io.flutter.embedding.android.FlutterActivity
 
