@@ -10,23 +10,17 @@ void main() {
     Player(id: 'leo', name: 'Leo', avatarIndex: 1),
   ];
 
-  test('physical defaults are not startable until equipment is confirmed', () {
+  test('physical defaults can start without a piece confirmation', () {
     final check = MatchSetupCheck.evaluate(
-      mode: GameMode.physicalCompanion,
       roster: roster,
       settings: const MatchSettings(),
     );
 
-    expect(check.isValid, isFalse);
-    expect(
-      check.issues,
-      contains('Confirm the group has enough distinguishable physical pieces.'),
-    );
+    expect(check.isValid, isTrue);
   });
 
   test('selected-player mode requires a roster member', () {
     final check = MatchSetupCheck.evaluate(
-      mode: GameMode.fullyDigital,
       roster: roster,
       settings: const MatchSettings(
         winRule: WinRule.selectedPlayerReachesTarget,
@@ -34,16 +28,6 @@ void main() {
     );
 
     expect(check.isValid, isFalse);
-  });
-
-  test('a confirmed physical setup with defaults is valid', () {
-    final check = MatchSetupCheck.evaluate(
-      mode: GameMode.physicalCompanion,
-      roster: roster,
-      settings: const MatchSettings(physicalEquipmentConfirmed: true),
-    );
-
-    expect(check.isValid, isTrue);
   });
 
   test('blank names become Player N and duplicates are numbered', () {
@@ -60,7 +44,6 @@ void main() {
 
   test('player count, bottles, target, and name length are bounded', () {
     final check = MatchSetupCheck.evaluate(
-      mode: GameMode.fullyDigital,
       roster: const [Player(id: 'only', name: '', avatarIndex: 0)],
       settings: const MatchSettings(bottleCount: 4, targetRoundWins: 21),
     );

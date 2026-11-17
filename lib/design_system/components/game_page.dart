@@ -1,67 +1,90 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:forui/forui.dart';
-import 'package:go_router/go_router.dart';
 
+import '../../application/audio/button_press.dart';
 import '../tokens/colors.dart';
-import '../tokens/gradients.dart';
 import '../tokens/spacing.dart';
 import '../layout/game_viewport.dart';
+import 'action_footer.dart';
 
-class GamePage extends StatelessWidget {
+class GamePage extends ConsumerWidget {
   const GamePage({
-    required this.title,
     required this.body,
+    this.title,
     this.showBack = false,
+    this.onBack,
     this.actions = const [],
+    this.footer,
+    this.bleed = false,
     super.key,
   });
 
-  final String title;
+  final String? title;
   final Widget body;
   final bool showBack;
+  final VoidCallback? onBack;
   final List<Widget> actions;
+  final Widget? footer;
+
+  /// Lets [body] paint the whole screen, including behind the system bars.
+  final bool bleed;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
-        backgroundColor: AppColors.background,
-        body: DecoratedBox(
-          decoration: const BoxDecoration(gradient: AppGradients.background),
-          child: GameViewport(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
+        backgroundColor: Colors.transparent,
+        body: bleed
+            ? body
+            : GameViewport(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    if (showBack)
-                      IconButton(
-                        tooltip: 'Back',
-                        onPressed: () => context.pop(),
-                        icon: const Icon(FLucideIcons.arrowLeft),
-                        color: AppColors.cream,
-                        constraints: const BoxConstraints(
-                          minWidth: AppTouch.minimum,
-                          minHeight: AppTouch.minimum,
-                        ),
+                    if (showBack || title != null || actions.isNotEmpty)
+                      Row(
+                        children: [
+                          if (showBack)
+                            buttonTap(
+                              ref,
+                              onPressed:
+                                  onBack ?? () => Navigator.maybePop(context),
+                              child: IconButton(
+                                tooltip: 'Back',
+                                onPressed:
+                                    onBack ?? () => Navigator.maybePop(context),
+                                icon: const Icon(FLucideIcons.arrowLeft),
+                                color: AppColors.cream,
+                                constraints: const BoxConstraints(
+                                  minWidth: AppTouch.minimum,
+                                  minHeight: AppTouch.minimum,
+                                ),
+                              ),
+                            ),
+                          if (title != null)
+                            Expanded(
+                              child: Text(
+                                title!,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(
+                                  context,
+                                ).textTheme.headlineSmall,
+                              ),
+                            )
+                          else
+                            const Spacer(),
+                          ...actions,
+                        ],
                       ),
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: Theme.of(context).textTheme.headlineSmall,
-                      ),
-                    ),
-                    ...actions,
+                    const SizedBox(height: AppSpacing.md),
+                    Expanded(child: body),
+                    if (footer != null) ActionFooter(child: footer!),
                   ],
                 ),
-                const SizedBox(height: AppSpacing.md),
-                Expanded(child: body),
-              ],
-            ),
-          ),
-        ),
+              ),
       ),
     );
   }

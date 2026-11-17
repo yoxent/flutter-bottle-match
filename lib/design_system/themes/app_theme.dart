@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:forui/forui.dart';
 
 import '../tokens/colors.dart';
+import '../tokens/radii.dart';
+import '../tokens/spacing.dart';
 import '../tokens/typography.dart';
 
 /// Material theme for game screens, plus a Forui theme for standard controls.
@@ -26,8 +28,48 @@ abstract final class AppTheme {
       brightness: Brightness.dark,
       colorScheme: scheme,
       scaffoldBackgroundColor: AppColors.background,
+      fontFamily: AppFontFamily.body,
       textTheme: AppTypography.textTheme(),
       splashFactory: InkSparkle.splashFactory,
+      // The app plays button_click.wav. Leave the platform click off.
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(enableFeedback: false),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(enableFeedback: false),
+      ),
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(enableFeedback: false),
+      ),
+      inputDecorationTheme: const InputDecorationTheme(
+        filled: true,
+        fillColor: AppColors.background,
+        labelStyle: AppTypography.label,
+        floatingLabelStyle: TextStyle(
+          fontFamily: AppFontFamily.body,
+          fontSize: 14,
+          height: 1.3,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.2,
+          color: AppColors.yellow,
+        ),
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.md,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(AppRadii.md)),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(AppRadii.md)),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(AppRadii.md)),
+          borderSide: BorderSide(color: AppColors.yellow, width: 2),
+        ),
+      ),
     );
   }
 
@@ -54,7 +96,19 @@ abstract final class AppTheme {
     return FThemeData(
       colors: colors,
       touch: true,
-      debugLabel: 'Colorful Bottle Match',
+      debugLabel: 'Bottle Match',
+      typography: FTypography(
+        display: FTypeface.inherit(
+          colors: colors,
+          touch: true,
+          fontFamily: AppFontFamily.header,
+        ),
+        body: FTypeface.inherit(
+          colors: colors,
+          touch: true,
+          fontFamily: AppFontFamily.body,
+        ),
+      ),
     );
   }
 }

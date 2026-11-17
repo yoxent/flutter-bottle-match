@@ -9,6 +9,9 @@ class SharedPreferencesSettingsRepository implements SettingsRepository {
   static const soundKey = 'settings.sound_enabled';
   static const hapticsKey = 'settings.haptics_enabled';
   static const reducedMotionKey = 'settings.reduced_motion';
+  static const masterVolumeKey = 'settings.master_volume';
+  static const bgmVolumeKey = 'settings.bgm_volume';
+  static const sfxVolumeKey = 'settings.sfx_volume';
 
   final SharedPreferences _preferences;
 
@@ -18,6 +21,9 @@ class SharedPreferencesSettingsRepository implements SettingsRepository {
       soundEnabled: _preferences.getBool(soundKey) ?? true,
       hapticsEnabled: _preferences.getBool(hapticsKey) ?? true,
       reducedMotion: _preferences.getBool(reducedMotionKey) ?? false,
+      masterVolume: _volume(masterVolumeKey),
+      bgmVolume: _volume(bgmVolumeKey),
+      sfxVolume: _volume(sfxVolumeKey),
     );
   }
 
@@ -35,8 +41,31 @@ class SharedPreferencesSettingsRepository implements SettingsRepository {
       reducedMotionKey,
       settings.reducedMotion,
     );
-    if (!soundSaved || !hapticsSaved || !motionSaved) {
+    final masterSaved = await _preferences.setInt(
+      masterVolumeKey,
+      AppSettings.snapVolume(settings.masterVolume),
+    );
+    final bgmSaved = await _preferences.setInt(
+      bgmVolumeKey,
+      AppSettings.snapVolume(settings.bgmVolume),
+    );
+    final sfxSaved = await _preferences.setInt(
+      sfxVolumeKey,
+      AppSettings.snapVolume(settings.sfxVolume),
+    );
+    if (!soundSaved ||
+        !hapticsSaved ||
+        !motionSaved ||
+        !masterSaved ||
+        !bgmSaved ||
+        !sfxSaved) {
       throw StateError('Settings could not be saved on this device.');
     }
+  }
+
+  int _volume(String key) {
+    return AppSettings.snapVolume(
+      _preferences.getInt(key) ?? AppSettings.defaultVolume,
+    );
   }
 }

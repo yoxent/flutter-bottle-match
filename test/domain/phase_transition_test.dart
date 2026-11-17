@@ -30,12 +30,14 @@ void main() {
     expect(resumed.resumePhase, isNull);
   });
 
-  test('digital mode cannot record a physical result', () {
+  test('a digital match can record a round result', () {
     final match = sampleMatch(mode: GameMode.fullyDigital);
-    expect(
-      match.apply(MatchEvent.requestPhysicalResult, at: sampleUpdatedAt),
-      isNull,
+    final requested = match.apply(
+      MatchEvent.requestPhysicalResult,
+      at: sampleUpdatedAt,
     );
+
+    expect(requested?.phase, MatchPhase.physicalResultConfirmation);
   });
 
   test('ending early is unfinished and is not a championship', () {

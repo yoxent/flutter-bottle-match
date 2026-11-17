@@ -1,0 +1,11 @@
+{
+  "parameters": {
+    "test_ads": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "When true, a release build requests test ads. Debug builds always use test ads.",
+      "valueType": "BOOLEAN"
+    }
+  }
+}

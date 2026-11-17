@@ -1,5 +1,6 @@
 import 'package:flutter_bottle_match/application/controllers/settings_controller.dart';
 import 'package:flutter_bottle_match/application/providers.dart';
+import 'package:flutter_bottle_match/domain/models/app_settings.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -23,6 +24,12 @@ void main() {
           .setSoundEnabled(false);
       expect(repository.value.soundEnabled, isFalse);
 
+      await container
+          .read(settingsControllerProvider.notifier)
+          .setMasterVolume(73);
+      expect(repository.value.masterVolume, 75);
+      expect(AppSettings.snapVolume(72), 70);
+
       repository.failNextSave = true;
       await expectLater(
         container
@@ -35,6 +42,7 @@ void main() {
         isFalse,
       );
       expect(repository.value.reducedMotion, isFalse);
+      expect(repository.value.masterVolume, 75);
     },
   );
 }

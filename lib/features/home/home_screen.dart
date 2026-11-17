@@ -3,14 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:forui/forui.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../application/audio/button_press.dart';
 import '../../application/controllers/saved_match_controller.dart';
 import '../../application/controllers/settings_controller.dart';
 import '../../core/constants/app_info.dart';
 import '../../design_system/components/buttons/game_button.dart';
 import '../../design_system/components/game_page.dart';
-import '../../design_system/components/indicators/identity_swatch.dart';
 import '../../design_system/tokens/colors.dart';
 import '../../design_system/tokens/spacing.dart';
+import '../../design_system/tokens/typography.dart';
 import '../../domain/models/match_phase.dart';
 import '../../domain/models/match_snapshot.dart';
 
@@ -27,25 +28,44 @@ class HomeScreen extends ConsumerWidget {
     );
 
     return GamePage(
-      title: AppInfo.name,
       actions: [
-        IconButton(
-          tooltip: 'Settings',
+        buttonTap(
+          ref,
           onPressed: () => context.push('/settings'),
-          icon: const Icon(FLucideIcons.settings),
-          color: AppColors.cream,
-          constraints: const BoxConstraints(
-            minWidth: AppTouch.minimum,
-            minHeight: AppTouch.minimum,
+          child: IconButton(
+            tooltip: 'Settings',
+            onPressed: () => context.push('/settings'),
+            icon: const Icon(FLucideIcons.settings),
+            color: AppColors.cream,
+            constraints: const BoxConstraints(
+              minWidth: AppTouch.minimum,
+              minHeight: AppTouch.minimum,
+            ),
           ),
         ),
       ],
-      body: saved.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) =>
-            _StatusMessage(title: 'Saved match unavailable', body: '$error'),
-        data: (snapshot) =>
-            _HomeContent(snapshot: snapshot, reduceMotion: reduceMotion),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: saved.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, _) => _StatusMessage(
+                title: 'Saved match unavailable',
+                body: '$error',
+              ),
+              data: (snapshot) =>
+                  _HomeContent(snapshot: snapshot, reduceMotion: reduceMotion),
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.only(top: AppSpacing.sm),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: _AppVersion(),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -103,40 +123,11 @@ class _HomeContentState extends State<_HomeContent>
       opacity: _entrance,
       child: ListView(
         children: [
+          Text(AppInfo.name, style: AppTypography.display),
+          const SizedBox(height: AppSpacing.xs),
           Text(AppInfo.tagline, style: Theme.of(context).textTheme.bodyLarge),
           const SizedBox(height: AppSpacing.lg),
-          const Wrap(
-            spacing: AppSpacing.sm,
-            runSpacing: AppSpacing.sm,
-            alignment: WrapAlignment.center,
-            children: [
-              IdentitySwatch(
-                name: 'Star',
-                icon: FLucideIcons.star,
-                color: AppColors.yellow,
-              ),
-              IdentitySwatch(
-                name: 'Moon',
-                icon: FLucideIcons.moon,
-                color: AppColors.cyan,
-              ),
-              IdentitySwatch(
-                name: 'Heart',
-                icon: FLucideIcons.heart,
-                color: AppColors.hotPink,
-              ),
-              IdentitySwatch(
-                name: 'Bolt',
-                icon: FLucideIcons.zap,
-                color: AppColors.electricBlue,
-              ),
-              IdentitySwatch(
-                name: 'Drop',
-                icon: FLucideIcons.droplet,
-                color: AppColors.lime,
-              ),
-            ],
-          ),
+          const _BottleColors(),
           const SizedBox(height: AppSpacing.xl),
           if (showContinue) ...[
             GameButton(
@@ -150,28 +141,70 @@ class _HomeContentState extends State<_HomeContent>
             const SizedBox(height: AppSpacing.sm),
           ],
           GameButton(
-            key: const Key('physical-companion'),
-            label: 'Physical Companion',
-            semanticsLabel: 'Physical Companion',
+            key: const Key('new-game'),
+            label: 'New game',
+            semanticsLabel: 'New game',
             backgroundColor: AppColors.hotPink,
-            icon: FLucideIcons.users,
-            onPressed: () => context.push('/physical'),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          GameButton(
-            key: const Key('fully-digital'),
-            label: 'Fully Digital',
-            semanticsLabel: 'Fully Digital, not implemented',
-            backgroundColor: AppColors.cyan,
-            icon: FLucideIcons.smartphone,
-            onPressed: () => context.push('/digital'),
+            icon: FLucideIcons.play,
+            onPressed: () {
+              final replaceId = showContinue ? snapshot.matchId : null;
+              context.push(
+                replaceId == null
+                    ? '/match'
+                    : Uri(
+                        path: '/match',
+                        queryParameters: {'replace': replaceId},
+                      ).toString(),
+              );
+            },
           ),
           const SizedBox(height: AppSpacing.lg),
           Text(
-            'Shared device. No account. Release 1 tracks a physical match. '
-            'Fully Digital is Release 2 and is not playable yet.',
+            'Shared device. No account. Players take turns on one device.',
             style: Theme.of(context).textTheme.labelLarge,
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AppVersion extends StatelessWidget {
+  const _AppVersion();
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'Version ${AppInfo.version}',
+      child: ExcludeSemantics(
+        child: Text(
+          AppInfo.version,
+          style: AppTypography.label,
+          textAlign: TextAlign.right,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+    );
+  }
+}
+
+class _BottleColors extends StatelessWidget {
+  const _BottleColors();
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'Fifteen bottle colors',
+      child: Wrap(
+        spacing: AppSpacing.xs,
+        runSpacing: AppSpacing.xs,
+        children: [
+          for (final color in PieceColors.values)
+            DecoratedBox(
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+              child: const SizedBox(width: 18, height: 18),
+            ),
         ],
       ),
     );

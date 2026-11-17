@@ -1,36 +1,58 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bottle_match/app.dart';
+import 'package:flutter_bottle_match/core/constants/app_info.dart';
 import 'package:flutter_bottle_match/application/providers.dart';
+import 'package:flutter_bottle_match/design_system/components/ad_banner_placeholder.dart';
+import 'package:flutter_bottle_match/features/home/home_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/match_fixtures.dart';
 import 'support/memory_repositories.dart';
+import 'support/silent_sound_output.dart';
 
 void main() {
-  testWidgets('home offers both modes and marks digital as unavailable', (
-    tester,
-  ) async {
+  testWidgets('home starts a game without a mode choice', (tester) async {
     await _pumpApp(tester);
 
-    expect(find.text('Colorful Bottle Match'), findsOneWidget);
-    expect(find.text('Physical Companion'), findsOneWidget);
-    expect(find.text('Fully Digital'), findsOneWidget);
-    expect(find.text('Star'), findsOneWidget);
+    expect(find.text('Bottle Match'), findsOneWidget);
+    expect(find.text(AppInfo.version), findsOneWidget);
+    final version = tester.getRect(find.text(AppInfo.version));
+    final newGame = tester.getRect(find.byKey(const Key('new-game')));
+    expect(version.top, greaterThan(newGame.bottom));
+    expect(
+      version.center.dx,
+      greaterThan(tester.getSize(find.byType(HomeScreen)).width / 2),
+    );
+    expect(find.text('Ad banner'), findsOneWidget);
+    expect(
+      tester.getSize(find.byType(AdBannerPlaceholder)).height,
+      AdBannerPlaceholder.height,
+    );
+    expect(find.text('New game'), findsOneWidget);
+    expect(find.text('Physical Companion'), findsNothing);
+    expect(find.text('Fully Digital'), findsNothing);
+    expect(find.text('Star'), findsNothing);
 
-    await tester.tap(find.byKey(const Key('fully-digital')));
+    await tester.tap(find.byKey(const Key('new-game')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Not implemented'), findsOneWidget);
-    expect(find.textContaining('proposed'), findsOneWidget);
+    expect(find.text('Players'), findsOneWidget);
+    expect(find.text(AppInfo.version), findsNothing);
+    expect(find.text('Ad banner'), findsOneWidget);
   });
 
   testWidgets('settings changes reduced motion', (tester) async {
+    tester.view.physicalSize = const Size(800, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     final settings = MemorySettingsRepository();
     await _pumpApp(tester, settings: settings);
 
     await tester.tap(find.byTooltip('Settings'));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Reduced motion'));
     await tester.tap(find.text('Reduced motion'));
     await tester.pumpAndSettle();
 
@@ -50,6 +72,24 @@ void main() {
     expect(find.textContaining('not reshuffled'), findsOneWidget);
     expect(find.textContaining('Maya, Leo'), findsOneWidget);
   });
+
+  testWidgets('volume buttons step by five percent from 70', (tester) async {
+    final settings = MemorySettingsRepository();
+    await _pumpApp(tester, settings: settings);
+
+    await tester.tap(find.byTooltip('Settings'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('70%'), findsNWidgets(3));
+    final increase = find.byTooltip('Increase Music volume');
+    await tester.ensureVisible(increase);
+    await tester.tap(increase);
+    await tester.pumpAndSettle();
+
+    expect(settings.value.bgmVolume, 75);
+    expect(find.text('75%'), findsOneWidget);
+    expect(find.text('70%'), findsNWidgets(2));
+  });
 }
 
 Future<void> _pumpApp(
@@ -66,6 +106,7 @@ Future<void> _pumpApp(
         settingsRepositoryProvider.overrideWithValue(
           settings ?? MemorySettingsRepository(),
         ),
+        soundOutputProvider.overrideWithValue(const SilentSoundOutput()),
       ],
       child: const ColorfulBottleMatchApp(),
     ),

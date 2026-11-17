@@ -2,10 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:forui/forui.dart';
 
 import '../../application/controllers/settings_controller.dart';
+import '../../design_system/components/buttons/game_switch.dart';
 import '../../design_system/components/game_page.dart';
+import '../../design_system/components/section_card.dart';
+import '../../design_system/components/volume_slider.dart';
 import '../../design_system/tokens/spacing.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -29,39 +31,79 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         error: (error, _) => Text('$error'),
         data: (value) => ListView(
           children: [
-            FSwitch(
-              value: value.soundEnabled,
-              semanticsLabel: 'Sound',
-              label: const Text('Sound'),
-              description: const Text('Selection and result sounds.'),
-              onChange: (enabled) => _save(
-                () => ref
-                    .read(settingsControllerProvider.notifier)
-                    .setSoundEnabled(enabled),
-              ),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            FSwitch(
-              value: value.hapticsEnabled,
-              semanticsLabel: 'Haptics',
-              label: const Text('Haptics'),
-              description: const Text('Vibration separate from sound.'),
-              onChange: (enabled) => _save(
-                () => ref
-                    .read(settingsControllerProvider.notifier)
-                    .setHapticsEnabled(enabled),
-              ),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            FSwitch(
-              value: value.reducedMotion,
-              semanticsLabel: 'Reduced motion',
-              label: const Text('Reduced motion'),
-              description: const Text('Short fades instead of movement.'),
-              onChange: (enabled) => _save(
-                () => ref
-                    .read(settingsControllerProvider.notifier)
-                    .setReducedMotion(enabled),
+            SectionCard(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Column(
+                children: [
+                  GameSwitch(
+                    value: value.soundEnabled,
+                    semanticsLabel: 'Sound',
+                    label: const Text('Sound'),
+                    description: const Text('Turns music and effects off.'),
+                    onChange: (enabled) => _save(
+                      () => ref
+                          .read(settingsControllerProvider.notifier)
+                          .setSoundEnabled(enabled),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  VolumeSlider(
+                    id: 'master',
+                    label: 'Master',
+                    percent: value.masterVolume,
+                    onChanged: (percent) => _save(
+                      () => ref
+                          .read(settingsControllerProvider.notifier)
+                          .setMasterVolume(percent),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  VolumeSlider(
+                    id: 'music',
+                    label: 'Music',
+                    percent: value.bgmVolume,
+                    onChanged: (percent) => _save(
+                      () => ref
+                          .read(settingsControllerProvider.notifier)
+                          .setBgmVolume(percent),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  VolumeSlider(
+                    id: 'effects',
+                    label: 'Effects',
+                    percent: value.sfxVolume,
+                    onChanged: (percent) => _save(
+                      () => ref
+                          .read(settingsControllerProvider.notifier)
+                          .setSfxVolume(percent),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  GameSwitch(
+                    value: value.hapticsEnabled,
+                    semanticsLabel: 'Haptics',
+                    label: const Text('Haptics'),
+                    description: const Text('Vibration separate from sound.'),
+                    onChange: (enabled) => _save(
+                      () => ref
+                          .read(settingsControllerProvider.notifier)
+                          .setHapticsEnabled(enabled),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  GameSwitch(
+                    value: value.reducedMotion,
+                    semanticsLabel: 'Reduced motion',
+                    label: const Text('Reduced motion'),
+                    description: const Text('Short fades instead of movement.'),
+                    onChange: (enabled) => _save(
+                      () => ref
+                          .read(settingsControllerProvider.notifier)
+                          .setReducedMotion(enabled),
+                    ),
+                  ),
+                ],
               ),
             ),
             if (_error != null) ...[
