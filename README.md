@@ -6,7 +6,7 @@ This repository is the runnable Flutter application. Design notes, architecture 
 
 ## Privacy
 
-The privacy policy source is `privacy/index.html`. A push to `main` publishes that file to `gh-pages`, which is what <https://yoxent.github.io/flutter-bottle-match/> serves. Edit the page in `main`.
+The privacy policy source is `privacy/index.html`. A push to `main` publishes that file with GitHub Pages. Edit the page in `main`.
 
 ## Requirements
 
